@@ -232,6 +232,27 @@ describe('pointer intents', () => {
     expect(audio.played.length).toBeGreaterThan(muted);
   });
 
+  it('mutes the rest on a double tap, as a single step of history, and back again', () => {
+    open('#v1~120~k3_0~s3_0.5~t4_0');
+    const before = window.history.length;
+    const doubleTap = (): void => {
+      act(() => scene.emit({ type: 'voiceTapped', voiceId: firstVoiceId() }));
+      act(() => scene.emit({ type: 'voiceDoubleTapped', voiceId: firstVoiceId() }));
+    };
+    doubleTap();
+    expect(window.location.hash).toBe('#v1~120~k3_0~S3_0.5~T4_0');
+    expect(window.history.length).toBe(before + 1);
+    expect(status()).toBe('Kick solo');
+
+    act(() => scene.emit({ type: 'coreTapped' }));
+    wait(2);
+    expect(new Set(audio.played.map((hit) => hit.sound))).toEqual(new Set(['kick']));
+
+    doubleTap();
+    expect(window.location.hash).toBe('#v1~120~k3_0~s3_0.5~t4_0');
+    expect(status()).toBe('All Voices unmuted');
+  });
+
   it('moves a dropped Voice and removes one dropped on the Dock', () => {
     open();
     drop('kick');
@@ -309,6 +330,17 @@ describe('keyboard', () => {
     expect(voiceButtons()).toHaveLength(0);
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Pause' }));
     expect(scene.state?.focusedVoiceId).toBeNull();
+  });
+
+  it('mutes the rest with S on the focused Voice', async () => {
+    open('#v1~120~k3_0~s3_0.5');
+    act(() => screen.getByRole('button', { name: 'Snare, Ring 3, off the beat' }).focus());
+    await user.keyboard('s');
+    expect(status()).toBe('Snare solo');
+    expect(voiceButtons().map((button) => button.textContent)).toEqual([
+      'Kick, Ring 3, on the beat, muted',
+      'Snare, Ring 3, off the beat',
+    ]);
   });
 
   it('adds every new Voice of a Sound at its own position', async () => {

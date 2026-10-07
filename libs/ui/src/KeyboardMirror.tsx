@@ -22,6 +22,7 @@ export interface KeyboardMirrorProps {
   /** The position is always on the Magnet grid. */
   onMoveVoice(id: VoiceId, position: Position): void;
   onToggleMuted(id: VoiceId): void;
+  onSoloVoice(id: VoiceId): void;
   onRemoveVoice(id: VoiceId): void;
   onToggleTransport(): void;
   onFocusVoice(id: VoiceId | null): void;
@@ -46,6 +47,7 @@ export const KeyboardMirror = ({
   onAddVoice,
   onMoveVoice,
   onToggleMuted,
+  onSoloVoice,
   onRemoveVoice,
   onToggleTransport,
   onFocusVoice,
@@ -61,6 +63,8 @@ export const KeyboardMirror = ({
         distance: ringDistance(from.distance + step.rings),
         angle: angle(from.angle + step.divisions / ANGULAR_DIVISIONS),
       });
+    } else if (event.key === 's' || event.key === 'S') {
+      onSoloVoice(voice.id);
     } else if (event.key === 'Delete' || event.key === 'Backspace') {
       event.preventDefault();
       // The control is about to disappear; keep focus inside the mirror.
@@ -83,7 +87,7 @@ export const KeyboardMirror = ({
           <button
             key={voice.id}
             type="button"
-            aria-description="Enter mutes, arrows move, Delete removes"
+            aria-description="Enter mutes, S mutes the rest, arrows move, Delete removes"
             onClick={() => onToggleMuted(voice.id)}
             onKeyDown={(event) => onVoiceKey(event, voice)}
             onFocus={() => onFocusVoice(voice.id)}

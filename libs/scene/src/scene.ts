@@ -25,6 +25,8 @@ export type SceneIntent =
   | ({ readonly type: 'voiceDropped'; readonly voiceId: VoiceId } & Drop)
   | { readonly type: 'voiceDroppedOnDock'; readonly voiceId: VoiceId }
   | { readonly type: 'voiceTapped'; readonly voiceId: VoiceId }
+  /** The second of two quick taps on the same Voice; the first was already emitted as `voiceTapped`. */
+  | { readonly type: 'voiceDoubleTapped'; readonly voiceId: VoiceId }
   | { readonly type: 'coreTapped' };
 
 export interface Scene {

@@ -16,6 +16,7 @@ import {
   seconds,
   secondsAt,
   setTempo,
+  soloVoice,
   startTimeline,
   toggleMuted,
   vacantPosition,
@@ -73,10 +74,13 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
   };
 
   /** Shows a Pattern and records it in the URL as one step of history. */
-  const commit = (next: Pattern): void => {
+  const commit = (next: Pattern, amendLast = false): void => {
     show(next);
     const encoded = encodePattern(next);
-    if (encoded !== encodePattern(patternInUrl())) window.history.pushState(null, '', `#${encoded}`);
+    if (amendLast) window.history.replaceState(null, '', `#${encoded}`);
+    else if (encoded !== encodePattern(patternInUrl())) {
+      window.history.pushState(null, '', `#${encoded}`);
+    }
   };
 
   const start = (): void => {
@@ -134,6 +138,18 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
     commit(toggleMuted(pattern, id));
   };
 
+  const solo = (id: VoiceId, from: Pattern, amendLast = false): void => {
+    const voice = from.voices.find((candidate) => candidate.id === id);
+    if (!voice) return;
+    const next = soloVoice(from, id);
+    setAnnouncement(
+      next.voices.some((other) => other.muted)
+        ? `${SOUND_NAMES[voice.sound]} solo`
+        : 'All Voices unmuted',
+    );
+    commit(next, amendLast);
+  };
+
   const remove = (id: VoiceId): void => {
     const voice = pattern.voices.find((candidate) => candidate.id === id);
     if (!voice) return;
@@ -180,6 +196,11 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
         break;
       case 'voiceTapped':
         mute(intent.voiceId);
+        break;
+      case 'voiceDoubleTapped':
+        // The first tap already toggled Muted: take that back, so that the whole
+        // gesture is one change in the Pattern and one step of history.
+        solo(intent.voiceId, toggleMuted(pattern, intent.voiceId), true);
         break;
       case 'coreTapped':
         toggleTransport();
@@ -250,6 +271,7 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
         onAddVoice={(sound) => add(sound, vacantPosition(pattern, sound), true)}
         onMoveVoice={(id, position) => move(id, position, true)}
         onToggleMuted={mute}
+        onSoloVoice={(id) => solo(id, pattern)}
         onRemoveVoice={remove}
         onToggleTransport={toggleTransport}
         onFocusVoice={setFocusedVoiceId}

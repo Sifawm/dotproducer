@@ -97,6 +97,18 @@ export const toggleMuted = (pattern: Pattern, id: VoiceId): Pattern => ({
   ),
 });
 
+/**
+ * Mutes every Voice but the given one. When that Voice is already the only one
+ * heard, every Voice is brought back instead.
+ */
+export const soloVoice = (pattern: Pattern, id: VoiceId): Pattern => {
+  const alreadySolo = pattern.voices.every((voice) => voice.muted === (voice.id !== id));
+  return {
+    ...pattern,
+    voices: pattern.voices.map((voice) => ({ ...voice, muted: !alreadySolo && voice.id !== id })),
+  };
+};
+
 export const setTempo = (pattern: Pattern, bpm: number): Pattern => ({
   ...pattern,
   tempo: tempo(bpm),

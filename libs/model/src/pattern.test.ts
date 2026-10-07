@@ -11,6 +11,7 @@ import {
   removeVoice,
   ringDistance,
   setTempo,
+  soloVoice,
   toggleMuted,
   type Pattern,
   type Position,
@@ -118,6 +119,28 @@ describe('Pattern operations', () => {
     expect(setTempo(emptyPattern, 97.4).tempo).toBe(97);
     expect(setTempo(emptyPattern, 20).tempo).toBe(60);
     expect(setTempo(emptyPattern, 999).tempo).toBe(180);
+  });
+});
+
+describe('solo', () => {
+  const three = (['kick', 'snare', 'tom'] as const).reduce(
+    (pattern, sound, index) => addVoice(pattern, sound, at(index + 1, 0), true),
+    emptyPattern,
+  );
+  const snareId = three.voices[1]?.id;
+  if (snareId === undefined) throw new Error('no voice');
+  const muted = (pattern: Pattern) => pattern.voices.map((voice) => voice.muted);
+
+  it('mutes every other Voice', () => {
+    expect(muted(soloVoice(three, snareId))).toEqual([true, false, true]);
+  });
+
+  it('unmutes the Voice itself if it was Muted', () => {
+    expect(muted(soloVoice(toggleMuted(three, snareId), snareId))).toEqual([true, false, true]);
+  });
+
+  it('brings every Voice back when the Voice is already the only one heard', () => {
+    expect(soloVoice(soloVoice(three, snareId), snareId)).toEqual(three);
   });
 });
 

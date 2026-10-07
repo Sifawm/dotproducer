@@ -43,6 +43,7 @@ interface Ripple {
 
 const DRAG_THRESHOLD = 6;
 const MIN_TOUCH_RADIUS = 22;
+const DOUBLE_TAP_MS = 300;
 /** A jump this long on the timeline is a restore, not playback: no Ripples for it. */
 const MAX_FRAME_BEATS = 4;
 
@@ -110,6 +111,7 @@ export const createPixiScene = (theme: SceneTheme): Scene => {
     null;
 
   let gesture: Gesture | null = null;
+  let lastTap: { readonly voiceId: VoiceId; readonly at: number } | null = null;
   let lastPosition: Beats | null = null;
   let lastFrameAt = 0;
   let ripples: Ripple[] = [];
@@ -191,8 +193,12 @@ export const createPixiScene = (theme: SceneTheme): Scene => {
       gesture = null;
       if (!dragging) {
         if (target.kind === 'dock') emit({ type: 'dockAuditioned', sound: target.sound });
-        else if (target.kind === 'voice') emit({ type: 'voiceTapped', voiceId: target.voiceId });
-        else emit({ type: 'coreTapped' });
+        else if (target.kind === 'voice') {
+          const now = performance.now();
+          const second = lastTap?.voiceId === target.voiceId && now - lastTap.at < DOUBLE_TAP_MS;
+          lastTap = second ? null : { voiceId: target.voiceId, at: now };
+          emit({ type: second ? 'voiceDoubleTapped' : 'voiceTapped', voiceId: target.voiceId });
+        } else emit({ type: 'coreTapped' });
         return;
       }
       const drop = { point, canvas: canvasSize, invertMagnet: event.altKey };
