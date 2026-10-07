@@ -4,7 +4,6 @@ import {
   beats,
   decodePattern,
   encodePattern,
-  freeGridPosition,
   hitsInWindow,
   moveVoice,
   pauseTimeline,
@@ -18,6 +17,7 @@ import {
   setTempo,
   startTimeline,
   toggleMuted,
+  vacantPosition,
   type Pattern,
   type Position,
   type Sound,
@@ -73,8 +73,8 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
   /** Shows a Pattern and records it in the URL as one step of history. */
   const commit = (next: Pattern): void => {
     show(next);
-    const hash = `#${encodePattern(next)}`;
-    if (hash !== window.location.hash) window.history.pushState(null, '', hash);
+    const encoded = encodePattern(next);
+    if (encoded !== encodePattern(patternInUrl())) window.history.pushState(null, '', `#${encoded}`);
   };
 
   const start = (): void => {
@@ -99,8 +99,8 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
     setAnnouncement(playing ? 'Paused' : 'Playing');
   };
 
-  const add = (sound: Sound, position: Position, snap: boolean): void => {
-    const next = addVoice(pattern, sound, position, snap);
+  const add = (sound: Sound, position: Position, magnetOn: boolean): void => {
+    const next = addVoice(pattern, sound, position, magnetOn);
     const added = next.voices[next.voices.length - 1];
     if (next !== pattern && added) {
       setAnnouncement(`${SOUND_NAMES[sound]} added, ${describePosition(added)}`);
@@ -110,8 +110,8 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
     start();
   };
 
-  const move = (id: VoiceId, position: Position, snap: boolean): void => {
-    const next = moveVoice(pattern, id, position, snap);
+  const move = (id: VoiceId, position: Position, magnetOn: boolean): void => {
+    const next = moveVoice(pattern, id, position, magnetOn);
     const before = pattern.voices.find((voice) => voice.id === id);
     const after = next.voices.find((voice) => voice.id === id);
     if (before) {
@@ -210,7 +210,9 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
   useEffect(() => scene.onIntent(onIntent), [scene]);
 
   useEffect(() => {
-    scene.update({ pattern, magnet, playing, focusedVoiceId });
+    // A Voice that was removed or merged while focused is no longer there to point at.
+    const focused = pattern.voices.some((voice) => voice.id === focusedVoiceId);
+    scene.update({ pattern, magnet, playing, focusedVoiceId: focused ? focusedVoiceId : null });
   }, [scene, pattern, magnet, playing, focusedVoiceId]);
 
   useEffect(() => {
@@ -238,7 +240,7 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
         pattern={pattern}
         playing={playing}
         announcement={announcement}
-        onAddVoice={(sound) => add(sound, freeGridPosition(pattern, sound), true)}
+        onAddVoice={(sound) => add(sound, vacantPosition(pattern, sound), true)}
         onMoveVoice={(id, position) => move(id, position, true)}
         onToggleMuted={mute}
         onRemoveVoice={remove}
@@ -247,8 +249,8 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
       />
       <TempoControl
         tempo={pattern.tempo}
-        onChange={(bpm) => show(setTempo(pattern, bpm))}
-        onCommit={(bpm) => commit(setTempo(pattern, bpm))}
+        onChange={(tempo) => show(setTempo(pattern, tempo))}
+        onCommit={(tempo) => commit(setTempo(pattern, tempo))}
       />
       <MagnetControl on={magnet} onToggle={() => setMagnet(!magnet)} />
       <Hint visible={pattern.voices.length === 0 && !hintDismissed} />

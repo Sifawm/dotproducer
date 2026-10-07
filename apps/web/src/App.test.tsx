@@ -277,6 +277,8 @@ describe('keyboard', () => {
     await user.keyboard('{Delete}');
     expect(status()).toBe('Kick removed');
     expect(voiceButtons()).toHaveLength(0);
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Pause' }));
+    expect(scene.state?.focusedVoiceId).toBeNull();
   });
 
   it('adds every new Voice of a Sound at its own position', async () => {
@@ -357,6 +359,24 @@ describe('URL', () => {
     drop('kick');
     drop('snare', ring3OffTheBeat);
     expect(window.history.length).toBe(before + 2);
+  });
+
+  it('adds one history entry for a Tempo key that is held down', async () => {
+    open();
+    drop('kick');
+    const before = window.history.length;
+    screen.getByRole('spinbutton', { name: 'Tempo' }).focus();
+    await user.keyboard('{ArrowUp>5/}');
+    expect(window.location.hash).toBe('#v1~125~k3_0');
+    expect(window.history.length).toBe(before + 1);
+  });
+
+  it('leaves history alone when nothing changes', async () => {
+    open();
+    const before = window.history.length;
+    for (let presses = 0; presses < 10; presses++) await user.tab();
+    expect(window.history.length).toBe(before);
+    expect(window.location.hash).toBe('');
   });
 
   it('restores the Pattern when history is navigated', () => {

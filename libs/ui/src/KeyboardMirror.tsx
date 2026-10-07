@@ -10,7 +10,7 @@ import {
   type Voice,
   type VoiceId,
 } from '@dotproducer/model';
-import type { KeyboardEvent, ReactElement } from 'react';
+import { useRef, type KeyboardEvent, type ReactElement } from 'react';
 import { SOUND_NAMES, describeVoice } from './labels';
 
 export interface KeyboardMirrorProps {
@@ -50,6 +50,8 @@ export const KeyboardMirror = ({
   onToggleTransport,
   onFocusVoice,
 }: KeyboardMirrorProps): ReactElement => {
+  const core = useRef<HTMLButtonElement>(null);
+
   const onVoiceKey = (event: KeyboardEvent, voice: Voice): void => {
     const step = STEPS[event.key];
     if (step) {
@@ -61,6 +63,8 @@ export const KeyboardMirror = ({
       });
     } else if (event.key === 'Delete' || event.key === 'Backspace') {
       event.preventDefault();
+      // The control is about to disappear; keep focus inside the mirror.
+      core.current?.focus();
       onRemoveVoice(voice.id);
     }
   };
@@ -89,7 +93,7 @@ export const KeyboardMirror = ({
           </button>
         ))}
       </div>
-      <button type="button" onClick={onToggleTransport}>
+      <button ref={core} type="button" onClick={onToggleTransport}>
         {playing ? 'Pause' : 'Play'}
       </button>
       <div role="status">{announcement}</div>

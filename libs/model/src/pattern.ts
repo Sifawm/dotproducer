@@ -6,12 +6,13 @@ import {
   ringDistance,
   tempo,
   type Angle,
+  type Brand,
+  type Ring,
   type RingDistance,
   type Tempo,
 } from './units';
 
-declare const voiceIdBrand: unique symbol;
-export type VoiceId = number & { readonly [voiceIdBrand]: 'VoiceId' };
+export type VoiceId = Brand<number, 'VoiceId'>;
 
 export interface Position {
   readonly distance: RingDistance;
@@ -99,10 +100,10 @@ export const setTempo = (pattern: Pattern, bpm: number): Pattern => ({
   tempo: tempo(bpm),
 });
 
-const RING_PREFERENCE = [3, 4, 2, 5, 1];
+const RING_PREFERENCE: readonly Ring[] = [3, 4, 2, 5, 1];
 
-/** The first Magnet-grid position not yet taken by the given Sound, starting on Ring 3 on the beat. */
-export const freeGridPosition = (pattern: Pattern, sound: Sound): Position => {
+/** The first Ring and angular division not yet taken by the given Sound, starting on Ring 3 on the beat. */
+export const vacantPosition = (pattern: Pattern, sound: Sound): Position => {
   for (const ring of RING_PREFERENCE) {
     for (let division = 0; division < ANGULAR_DIVISIONS; division++) {
       const position = {

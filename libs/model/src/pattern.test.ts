@@ -4,7 +4,7 @@ import {
   addVoice,
   angle,
   emptyPattern,
-  freeGridPosition,
+  vacantPosition,
   moveVoice,
   place,
   removeVoice,
@@ -142,12 +142,12 @@ describe('default keyboard position', () => {
   it('is on the Magnet grid and free for that Sound', () => {
     let pattern = emptyPattern;
     for (let count = 1; count <= 40; count++) {
-      pattern = addVoice(pattern, 'kick', freeGridPosition(pattern, 'kick'), true);
+      pattern = addVoice(pattern, 'kick', vacantPosition(pattern, 'kick'), true);
       expect(pattern.voices).toHaveLength(count);
     }
   });
 
   it('starts on Ring 3, on the beat', () => {
-    expect(freeGridPosition(emptyPattern, 'kick')).toEqual(at(3, 0));
+    expect(vacantPosition(emptyPattern, 'kick')).toEqual(at(3, 0));
   });
 });

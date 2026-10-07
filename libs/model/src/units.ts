@@ -1,5 +1,8 @@
 declare const brand: unique symbol;
-type Brand<T, Name extends string> = T & { readonly [brand]: Name };
+/** A nominal type; brands compose, so a Period is also a time in Beats. */
+export type Brand<T, Name extends string> = T & {
+  readonly [brand]: { readonly [Key in Name]: true };
+};
 
 /** Distance from the Core in Ring units: 1 (first Ring) to 5 (last Ring), fractional in Free placement. */
 export type RingDistance = Brand<number, 'RingDistance'>;
@@ -12,11 +15,14 @@ export type Seconds = Brand<number, 'Seconds'>;
 /** Beats per minute, a whole number from 60 to 180. */
 export type Tempo = Brand<number, 'Tempo'>;
 /** The duration of one trip of a Pulse along its Link. */
-export type Period = Beats;
+export type Period = Brand<Beats, 'Period'>;
 /** The offset of a Voice within its own Period, as a fraction of it in [0, 1). */
 export type Phase = Brand<number, 'Phase'>;
 
-export const RING_COUNT = 5;
+/** The Rings by number, from the nearest to the Core (1/16 of a bar) to the farthest (1 bar). */
+export const RINGS = [1, 2, 3, 4, 5] as const;
+export type Ring = (typeof RINGS)[number];
+export const RING_COUNT = RINGS.length;
 export const ANGULAR_DIVISIONS = 8;
 export const MIN_TEMPO = 60;
 export const MAX_TEMPO = 180;

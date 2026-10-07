@@ -1,5 +1,6 @@
 import {
   RING_COUNT,
+  RINGS,
   SOUNDS,
   displayAngles,
   emptyPattern,
@@ -157,7 +158,7 @@ export const createPixiScene = (theme: SceneTheme): Scene => {
       return { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
     };
     const down = (event: PointerEvent): void => {
-      if (gesture) return;
+      if (gesture || event.button !== 0) return;
       const point = local(event);
       const target = hitTest(point, sizeOf(app));
       if (!target) return;
@@ -274,7 +275,7 @@ export const createPixiScene = (theme: SceneTheme): Scene => {
 
     g.clear();
 
-    for (let ring = 1; ring <= RING_COUNT; ring++) {
+    for (const ring of RINGS) {
       const lit = landing !== null && magnet && landing.distance === ring;
       g.circle(core.x, core.y, ring * ringSpacing).stroke({
         width: 1,

@@ -32,11 +32,11 @@ export const hitsInWindow = (pattern: Pattern, from: Beats, to: Beats): readonly
   for (const voice of pattern.voices) {
     if (voice.muted) continue;
     const length = period(voice.distance);
-    const offset = phase(voice.angle);
-    const hitTime = (cycle: number): number => (cycle + offset) * length;
+    const voicePhase = phase(voice.angle);
+    const hitTime = (cycle: number): number => (cycle + voicePhase) * length;
     // Both window edges are compared against the same expression, so consecutive
     // windows never drop or repeat a hit to rounding.
-    let cycle = Math.ceil(from / length - offset);
+    let cycle = Math.ceil(from / length - voicePhase);
     while (hitTime(cycle - 1) >= from) cycle--;
     while (hitTime(cycle) < from) cycle++;
     for (; hitTime(cycle) < to; cycle++) {
@@ -68,7 +68,7 @@ export const positionAt = (timeline: Timeline, now: Seconds): Beats =>
 
 export const secondsAt = (timeline: Timeline, position: Beats): Seconds =>
   (timeline.anchorSeconds +
-    ((position - timeline.anchorBeats) * 60) / timeline.tempo) as Seconds;
+    beatsToSeconds((position - timeline.anchorBeats) as Beats, timeline.tempo)) as Seconds;
 
 const anchoredAt = (timeline: Timeline, now: Seconds): Timeline => ({
   ...timeline,

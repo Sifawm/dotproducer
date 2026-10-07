@@ -4,8 +4,6 @@ import type { AudioEngine } from './audio-engine';
 
 type Trigger = (time: number) => void;
 
-/** How long the output stays closed after `silence`; must cover the caller's scheduling lookahead. */
-const SILENCE_SECONDS = 0.15;
 /** Monophonic synths reject two triggers at the same instant. */
 const MIN_RETRIGGER_SECONDS = 0.005;
 
@@ -44,8 +42,10 @@ const noise = (
 
 // ponytail: all six Sounds are synthesised. The spec wants CC0 samples for Clap,
 // Closed Hat and Open Hat; swap those three triggers for Tone.Player once sourced.
-export const createToneAudioEngine = (): AudioEngine => {
-  const output = new Gain(1).toDestination();
+const now = (): number => getContext().currentTime;
+
+/** One set of the six Sounds on its own output, triggered in time order. */
+const createKit = (output: Gain): ((sound: Sound, at: number) => void) => {
   // The fixed mix: volumes in dB.
   const triggers: Readonly<Record<Sound, Trigger>> = {
     kick: membrane(output, 'C1', -2, 0.05, 6, 0.4),
@@ -56,25 +56,38 @@ export const createToneAudioEngine = (): AudioEngine => {
     tom: membrane(output, 'G2', -6, 0.08, 2, 0.3),
   };
   const lastTrigger = new Map<Sound, number>();
-  const now = (): number => getContext().currentTime;
-
-  const play = (sound: Sound, at: number): void => {
+  return (sound, at) => {
     const time = Math.max(at, now());
     if (time - (lastTrigger.get(sound) ?? -Infinity) < MIN_RETRIGGER_SECONDS) return;
     lastTrigger.set(sound, time);
     triggers[sound](time);
   };
+};
+
+export const createToneAudioEngine = (): AudioEngine => {
+  // The Pattern is scheduled ahead of the clock, so auditioning gets a kit of its
+  // own: a tap on the Dock must sound now, whatever is already queued.
+  const patternOutput = new Gain(1).toDestination();
+  const playInPattern = createKit(patternOutput);
+  const playNow = createKit(new Gain(1).toDestination());
+  let silenced = false;
 
   return {
     unlock: () => void start(),
     now: () => now() as Seconds,
-    play,
-    audition: (sound) => play(sound, now()),
+    play: (sound, at) => {
+      if (silenced) {
+        patternOutput.gain.setValueAtTime(1, now());
+        silenced = false;
+      }
+      playInPattern(sound, at);
+    },
+    audition: (sound) => playNow(sound, now()),
+    // Closed until the next hit is scheduled, so tails and queued hits stay unheard.
     silence: () => {
-      const time = now();
-      output.gain.cancelScheduledValues(time);
-      output.gain.setValueAtTime(0, time);
-      output.gain.setValueAtTime(1, time + SILENCE_SECONDS);
+      patternOutput.gain.cancelScheduledValues(now());
+      patternOutput.gain.setValueAtTime(0, now());
+      silenced = true;
     },
   };
 };
