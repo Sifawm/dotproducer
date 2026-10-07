@@ -246,6 +246,36 @@ describe('pointer intents', () => {
   });
 });
 
+describe('clearing', () => {
+  it('offers nothing to clear on an empty canvas', () => {
+    open();
+    expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull();
+  });
+
+  it('removes every Voice in one step that Back can undo, keeping the Tempo', async () => {
+    open('#v1~96~k3_0~s3_0.5');
+    const before = window.history.length;
+    await user.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(voiceButtons()).toHaveLength(0);
+    expect(scene.state?.pattern.voices).toEqual([]);
+    expect(status()).toBe('Pattern cleared');
+    expect(window.location.hash).toBe('#v1~96');
+    expect(window.history.length).toBe(before + 1);
+    expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull();
+  });
+
+  it('stops the hits', async () => {
+    open();
+    drop('kick');
+    wait(1);
+    await user.click(screen.getByRole('button', { name: 'Clear' }));
+    wait(0.2);
+    const cleared = audio.played.length;
+    wait(2);
+    expect(audio.played).toHaveLength(cleared);
+  });
+});
+
 describe('keyboard', () => {
   it('creates, moves, mutes and removes a Voice, announcing each change', async () => {
     open();

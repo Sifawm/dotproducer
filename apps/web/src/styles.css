@@ -16,7 +16,8 @@ body {
 }
 
 .tempo,
-.magnet {
+.magnet,
+.clear {
   position: absolute;
   top: max(1rem, env(safe-area-inset-top));
   padding: 0.5rem;
@@ -33,7 +34,13 @@ body {
   touch-action: none;
 }
 
-.magnet {
+.clear {
+  top: calc(max(1rem, env(safe-area-inset-top)) + 2.5rem);
+  opacity: 0.6;
+}
+
+.magnet,
+.clear {
   right: max(1rem, env(safe-area-inset-right));
   border: 0;
   background: none;
@@ -49,7 +56,8 @@ body {
 }
 
 .tempo:focus-visible,
-.magnet:focus-visible {
+.magnet:focus-visible,
+.clear:focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: 2px;
   border-radius: 0.25rem;

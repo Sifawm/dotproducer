@@ -88,6 +88,8 @@ export const moveVoice = (
   };
 };
 
+export const clearVoices = (pattern: Pattern): Pattern => ({ ...pattern, voices: [] });
+
 export const toggleMuted = (pattern: Pattern, id: VoiceId): Pattern => ({
   ...pattern,
   voices: pattern.voices.map((voice) =>

@@ -1,3 +1,4 @@
+export { ClearControl } from './ClearControl';
 export { Hint } from './Hint';
 export { KeyboardMirror, type KeyboardMirrorProps } from './KeyboardMirror';
 export { MagnetControl, type MagnetControlProps } from './MagnetControl';

@@ -2,6 +2,7 @@ import type { AudioEngine } from '@dotproducer/audio';
 import {
   addVoice,
   beats,
+  clearVoices,
   decodePattern,
   encodePattern,
   hitsInWindow,
@@ -26,6 +27,7 @@ import {
 } from '@dotproducer/model';
 import type { Scene, SceneIntent } from '@dotproducer/scene';
 import {
+  ClearControl,
   Hint,
   KeyboardMirror,
   MagnetControl,
@@ -137,6 +139,11 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
     if (!voice) return;
     setAnnouncement(`${SOUND_NAMES[voice.sound]} removed`);
     commit(removeVoice(pattern, id));
+  };
+
+  const clear = (): void => {
+    setAnnouncement('Pattern cleared');
+    commit(clearVoices(pattern));
   };
 
   const onIntent = useEffectEvent((intent: SceneIntent): void => {
@@ -253,6 +260,7 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
         onCommit={(tempo) => commit(setTempo(pattern, tempo))}
       />
       <MagnetControl on={magnet} onToggle={() => setMagnet(!magnet)} />
+      {pattern.voices.length > 0 && <ClearControl onClear={clear} />}
       <Hint visible={pattern.voices.length === 0 && !hintDismissed} />
     </main>
   );

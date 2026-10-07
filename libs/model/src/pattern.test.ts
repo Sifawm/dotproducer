@@ -2,6 +2,7 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {
   addVoice,
+  clearVoices,
   angle,
   emptyPattern,
   vacantPosition,
@@ -99,6 +100,11 @@ describe('Pattern operations', () => {
   it('removes a Voice', () => {
     const start = addVoice(emptyPattern, 'clap', at(1, 0), true);
     expect(removeVoice(start, only(start).id).voices).toEqual([]);
+  });
+
+  it('clears every Voice and keeps the Tempo', () => {
+    const start = setTempo(addVoice(emptyPattern, 'clap', at(1, 0), true), 90);
+    expect(clearVoices(start)).toEqual({ tempo: 90, voices: [] });
   });
 
   it('toggles Muted back and forth', () => {
