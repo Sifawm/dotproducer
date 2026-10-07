@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": [],
+    "paths": {
+      "@dotproducer/model": ["./libs/model/src/index.ts"],
+      "@dotproducer/audio": ["./libs/audio/src/index.ts"],
+      "@dotproducer/scene": ["./libs/scene/src/index.ts"],
+      "@dotproducer/ui": ["./libs/ui/src/index.ts"]
+    }
+  }
+}

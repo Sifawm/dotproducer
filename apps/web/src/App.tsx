@@ -1,0 +1,257 @@
+import type { AudioEngine } from '@dotproducer/audio';
+import {
+  addVoice,
+  beats,
+  decodePattern,
+  encodePattern,
+  freeGridPosition,
+  hitsInWindow,
+  moveVoice,
+  pauseTimeline,
+  pointToPosition,
+  positionAt,
+  removeVoice,
+  resumeTimeline,
+  retimeTimeline,
+  seconds,
+  secondsAt,
+  setTempo,
+  startTimeline,
+  toggleMuted,
+  type Pattern,
+  type Position,
+  type Sound,
+  type Timeline,
+  type VoiceId,
+} from '@dotproducer/model';
+import type { Scene, SceneIntent } from '@dotproducer/scene';
+import {
+  Hint,
+  KeyboardMirror,
+  MagnetControl,
+  SOUND_NAMES,
+  TempoControl,
+  describePosition,
+} from '@dotproducer/ui';
+import { useEffect, useEffectEvent, useRef, useState, type ReactElement } from 'react';
+
+export interface AppProps {
+  readonly audio: AudioEngine;
+  readonly scene: Scene;
+}
+
+/** How often hits are handed to the audio engine, and how far ahead of the audio clock. */
+const SCHEDULE_INTERVAL_MS = 25;
+const LOOKAHEAD_SECONDS = 0.1;
+/** Playback starts slightly in the future so that the very first hit can be scheduled ahead. */
+const START_DELAY_SECONDS = 0.05;
+/** Hits found later than this (a throttled background tab) are skipped rather than bunched up. */
+const LATE_SECONDS = 0.05;
+
+const patternInUrl = (): Pattern => decodePattern(window.location.hash.slice(1));
+
+export const App = ({ audio, scene }: AppProps): ReactElement => {
+  const host = useRef<HTMLDivElement>(null);
+  const scheduledUntil = useRef(beats(0));
+  const [pattern, setPattern] = useState(patternInUrl);
+  const [magnet, setMagnet] = useState(true);
+  /** Null until playback has started for the first time. */
+  const [timeline, setTimeline] = useState<Timeline | null>(null);
+  const [heldVoiceId, setHeldVoiceId] = useState<VoiceId | null>(null);
+  const [focusedVoiceId, setFocusedVoiceId] = useState<VoiceId | null>(null);
+  const [hintDismissed, setHintDismissed] = useState(false);
+  const [announcement, setAnnouncement] = useState('');
+  const playing = timeline?.running ?? false;
+
+  const show = (next: Pattern): void => {
+    setPattern(next);
+    if (timeline && timeline.tempo !== next.tempo) {
+      setTimeline(retimeTimeline(timeline, next.tempo, audio.now()));
+    }
+  };
+
+  /** Shows a Pattern and records it in the URL as one step of history. */
+  const commit = (next: Pattern): void => {
+    show(next);
+    const hash = `#${encodePattern(next)}`;
+    if (hash !== window.location.hash) window.history.pushState(null, '', hash);
+  };
+
+  const start = (): void => {
+    audio.unlock();
+    if (timeline) return;
+    scheduledUntil.current = beats(0);
+    setTimeline(startTimeline(pattern.tempo, seconds(audio.now() + START_DELAY_SECONDS)));
+  };
+
+  const toggleTransport = (): void => {
+    if (!timeline) {
+      start();
+    } else if (timeline.running) {
+      const paused = pauseTimeline(timeline, audio.now());
+      audio.silence();
+      scheduledUntil.current = paused.anchorBeats;
+      setTimeline(paused);
+    } else {
+      audio.unlock();
+      setTimeline(resumeTimeline(timeline, audio.now()));
+    }
+    setAnnouncement(playing ? 'Paused' : 'Playing');
+  };
+
+  const add = (sound: Sound, position: Position, snap: boolean): void => {
+    const next = addVoice(pattern, sound, position, snap);
+    const added = next.voices[next.voices.length - 1];
+    if (next !== pattern && added) {
+      setAnnouncement(`${SOUND_NAMES[sound]} added, ${describePosition(added)}`);
+    }
+    setHintDismissed(true);
+    commit(next);
+    start();
+  };
+
+  const move = (id: VoiceId, position: Position, snap: boolean): void => {
+    const next = moveVoice(pattern, id, position, snap);
+    const before = pattern.voices.find((voice) => voice.id === id);
+    const after = next.voices.find((voice) => voice.id === id);
+    if (before) {
+      setAnnouncement(
+        after
+          ? `${SOUND_NAMES[before.sound]} moved to ${describePosition(after)}`
+          : `${SOUND_NAMES[before.sound]} merged`,
+      );
+    }
+    commit(next);
+    start();
+  };
+
+  const mute = (id: VoiceId): void => {
+    const voice = pattern.voices.find((candidate) => candidate.id === id);
+    if (!voice) return;
+    setAnnouncement(`${SOUND_NAMES[voice.sound]} ${voice.muted ? 'unmuted' : 'muted'}`);
+    commit(toggleMuted(pattern, id));
+  };
+
+  const remove = (id: VoiceId): void => {
+    const voice = pattern.voices.find((candidate) => candidate.id === id);
+    if (!voice) return;
+    setAnnouncement(`${SOUND_NAMES[voice.sound]} removed`);
+    commit(removeVoice(pattern, id));
+  };
+
+  const onIntent = useEffectEvent((intent: SceneIntent): void => {
+    switch (intent.type) {
+      case 'dockAuditioned':
+        audio.unlock();
+        audio.audition(intent.sound);
+        break;
+      case 'dragStarted':
+        setHintDismissed(true);
+        setHeldVoiceId(intent.voiceId);
+        break;
+      case 'dragCancelled':
+        setHeldVoiceId(null);
+        break;
+      case 'soundDropped':
+        add(
+          intent.sound,
+          pointToPosition(intent.point, intent.canvas),
+          magnet !== intent.invertMagnet,
+        );
+        break;
+      case 'voiceDropped':
+        setHeldVoiceId(null);
+        move(
+          intent.voiceId,
+          pointToPosition(intent.point, intent.canvas),
+          magnet !== intent.invertMagnet,
+        );
+        break;
+      case 'voiceDroppedOnDock':
+        setHeldVoiceId(null);
+        remove(intent.voiceId);
+        break;
+      case 'voiceTapped':
+        mute(intent.voiceId);
+        break;
+      case 'coreTapped':
+        toggleTransport();
+        break;
+    }
+  });
+
+  /** Hands the audio engine every hit up to a little ahead of the audio clock. */
+  const schedule = useEffectEvent((): void => {
+    if (!timeline?.running) return;
+    const now = audio.now();
+    const horizon = positionAt(timeline, seconds(now + LOOKAHEAD_SECONDS));
+    if (horizon <= scheduledUntil.current) return;
+    // A Voice being dragged is silent until it is dropped.
+    const audible = heldVoiceId === null ? pattern : removeVoice(pattern, heldVoiceId);
+    for (const hit of hitsInWindow(audible, scheduledUntil.current, horizon)) {
+      const at = secondsAt(timeline, hit.at);
+      if (at >= now - LATE_SECONDS) audio.play(hit.sound, at);
+    }
+    scheduledUntil.current = horizon;
+  });
+
+  const drawFrame = useEffectEvent((): void => {
+    scene.advance(timeline ? positionAt(timeline, audio.now()) : beats(0));
+  });
+
+  const restoreFromUrl = useEffectEvent((): void => show(patternInUrl()));
+
+  useEffect(() => {
+    if (!host.current) return;
+    scene.mount(host.current);
+    return () => scene.unmount();
+  }, [scene]);
+
+  useEffect(() => scene.onIntent(onIntent), [scene]);
+
+  useEffect(() => {
+    scene.update({ pattern, magnet, playing, focusedVoiceId });
+  }, [scene, pattern, magnet, playing, focusedVoiceId]);
+
+  useEffect(() => {
+    const interval = setInterval(schedule, SCHEDULE_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    let frame = requestAnimationFrame(function loop() {
+      drawFrame();
+      frame = requestAnimationFrame(loop);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('popstate', restoreFromUrl);
+    return () => window.removeEventListener('popstate', restoreFromUrl);
+  }, []);
+
+  return (
+    <main className="app">
+      <div className="scene" ref={host} />
+      <KeyboardMirror
+        pattern={pattern}
+        playing={playing}
+        announcement={announcement}
+        onAddVoice={(sound) => add(sound, freeGridPosition(pattern, sound), true)}
+        onMoveVoice={(id, position) => move(id, position, true)}
+        onToggleMuted={mute}
+        onRemoveVoice={remove}
+        onToggleTransport={toggleTransport}
+        onFocusVoice={setFocusedVoiceId}
+      />
+      <TempoControl
+        tempo={pattern.tempo}
+        onChange={(bpm) => show(setTempo(pattern, bpm))}
+        onCommit={(bpm) => commit(setTempo(pattern, bpm))}
+      />
+      <MagnetControl on={magnet} onToggle={() => setMagnet(!magnet)} />
+      <Hint visible={pattern.voices.length === 0 && !hintDismissed} />
+    </main>
+  );
+};

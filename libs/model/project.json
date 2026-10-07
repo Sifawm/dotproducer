@@ -1,0 +1,8 @@
+{
+  "name": "model",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/model/src",
+  "projectType": "library",
+  "tags": ["scope:model"],
+  "targets": { "typecheck": {}, "test": {} }
+}

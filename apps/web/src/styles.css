@@ -1,0 +1,86 @@
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font);
+}
+
+.app,
+.scene {
+  position: fixed;
+  inset: 0;
+}
+
+.tempo,
+.magnet {
+  position: absolute;
+  top: max(1rem, env(safe-area-inset-top));
+  padding: 0.5rem;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.tempo {
+  left: max(1rem, env(safe-area-inset-left));
+  font-size: 1.75rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.magnet {
+  right: max(1rem, env(safe-area-inset-right));
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: opacity var(--fade);
+}
+
+.magnet[aria-pressed='false'] {
+  opacity: 0.35;
+  text-decoration: line-through;
+}
+
+.tempo:focus-visible,
+.magnet:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+.hint {
+  position: absolute;
+  inset: auto 0 22%;
+  margin: 0;
+  text-align: center;
+  opacity: 0.7;
+  pointer-events: none;
+  transition: opacity var(--fade);
+}
+
+.hint[data-visible='false'] {
+  opacity: 0;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .magnet,
+  .hint {
+    transition: none;
+  }
+}
