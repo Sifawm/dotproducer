@@ -80,21 +80,16 @@ const paintShape = (
   }
 };
 
-/** The Dock runs along the bottom edge in portrait and along the left edge in landscape. */
+/** The Dock always runs along the bottom edge, in the margin below the last Ring. */
 const dockOf = (size: Size) => {
   const { core, ringSpacing } = layout(size);
-  const portrait = size.height >= size.width;
-  const gap = Math.min((portrait ? size.width : size.height) / (SOUNDS.length + 1), ringSpacing * 2.2);
-  const along = (index: number): number => (index - (SOUNDS.length - 1) / 2) * gap;
+  const gap = Math.min(size.width / (SOUNDS.length + 1), ringSpacing * 2.2);
   return {
-    dot: (sound: Sound): Point => {
-      const offset = along(SOUNDS.indexOf(sound));
-      return portrait
-        ? { x: core.x + offset, y: size.height - ringSpacing }
-        : { x: ringSpacing, y: core.y + offset };
-    },
-    contains: (point: Point): boolean =>
-      portrait ? point.y > size.height - ringSpacing * 2 : point.x < ringSpacing * 2,
+    dot: (sound: Sound): Point => ({
+      x: core.x + (SOUNDS.indexOf(sound) - (SOUNDS.length - 1) / 2) * gap,
+      y: size.height - ringSpacing,
+    }),
+    contains: (point: Point): boolean => point.y > size.height - ringSpacing * 1.7,
   };
 };
 
@@ -275,12 +270,15 @@ export const createPixiScene = (theme: SceneTheme): Scene => {
 
     g.clear();
 
+    // Rings stay dim; only the one a dot is being dragged over lights up, fully
+    // when the dot will snap to it and partly in Free placement.
+    const overRing = landing === null ? null : Math.round(landing.distance);
     for (const ring of RINGS) {
-      const lit = landing !== null && magnet && landing.distance === ring;
+      const dim = state.magnet ? 0.1 : 0.04;
       g.circle(core.x, core.y, ring * ringSpacing).stroke({
         width: 1,
         color: ink,
-        alpha: lit ? 0.7 : state.magnet ? 0.22 : 0.08,
+        alpha: ring === overRing ? (magnet ? 0.7 : 0.35) : dim,
       });
     }
     if (landing) {
