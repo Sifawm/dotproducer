@@ -156,25 +156,22 @@ describe('playing', () => {
     expect(pausedAt - lastHeard + (next - resumedAt)).toBeCloseTo(0.5);
   });
 
-  it('does not play a Voice while it is held, and brings it back in time on drop', () => {
+  it('keeps playing a held Voice from where it was, and stays in time on drop', () => {
     open();
     drop('kick');
     wait(1);
     const id = firstVoiceId();
     act(() => scene.emit({ type: 'dragStarted', voiceId: id }));
-    wait(0.2);
-    const held = audio.played.length;
+    const picked = audio.played.length;
     wait(2);
-    expect(audio.played).toHaveLength(held);
+    expect(audio.played.length).toBeGreaterThanOrEqual(picked + 3);
 
-    const first = playedTimes()[0] ?? 0;
     act(() =>
       scene.emit({ type: 'voiceDropped', voiceId: id, point: ring3OnTheBeat, canvas, invertMagnet: false }),
     );
     wait(1);
-    const back = playedTimes()[held] ?? 0;
-    // Still on the same half-second grid as before it was picked up.
-    expect(((back - first) / 0.5) % 1).toBeCloseTo(0);
+    // One unbroken half-second grid: before, while held and after the drop.
+    for (const gap of gaps(playedTimes())) expect(gap).toBeCloseTo(0.5);
   });
 
   it('follows the Tempo', async () => {

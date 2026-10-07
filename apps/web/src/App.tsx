@@ -60,7 +60,6 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
   const [magnet, setMagnet] = useState(true);
   /** Null until playback has started for the first time. */
   const [timeline, setTimeline] = useState<Timeline | null>(null);
-  const [heldVoiceId, setHeldVoiceId] = useState<VoiceId | null>(null);
   const [focusedVoiceId, setFocusedVoiceId] = useState<VoiceId | null>(null);
   const [hintDismissed, setHintDismissed] = useState(false);
   const [announcement, setAnnouncement] = useState('');
@@ -170,10 +169,8 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
         break;
       case 'dragStarted':
         setHintDismissed(true);
-        setHeldVoiceId(intent.voiceId);
         break;
       case 'dragCancelled':
-        setHeldVoiceId(null);
         break;
       case 'soundDropped':
         add(
@@ -183,7 +180,6 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
         );
         break;
       case 'voiceDropped':
-        setHeldVoiceId(null);
         move(
           intent.voiceId,
           pointToPosition(intent.point, intent.canvas),
@@ -191,7 +187,6 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
         );
         break;
       case 'voiceDroppedOnDock':
-        setHeldVoiceId(null);
         remove(intent.voiceId);
         break;
       case 'voiceTapped':
@@ -214,9 +209,8 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
     const now = audio.now();
     const horizon = positionAt(timeline, seconds(now + LOOKAHEAD_SECONDS));
     if (horizon <= scheduledUntil.current) return;
-    // A Voice being dragged is silent until it is dropped.
-    const audible = heldVoiceId === null ? pattern : removeVoice(pattern, heldVoiceId);
-    for (const hit of hitsInWindow(audible, scheduledUntil.current, horizon)) {
+    // A Voice being dragged keeps sounding from where it was until it is dropped.
+    for (const hit of hitsInWindow(pattern, scheduledUntil.current, horizon)) {
       const at = secondsAt(timeline, hit.at);
       if (at >= now - LATE_SECONDS) audio.play(hit.sound, at);
     }

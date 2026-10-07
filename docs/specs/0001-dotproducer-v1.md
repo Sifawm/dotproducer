@@ -74,7 +74,7 @@ The music starts with the first Voice dropped. Tapping the Core pauses and resum
 ### Moving Voices
 
 31. As a player, I want to drag an existing Voice to a new position while the music plays, so that I can reshape the Pattern live.
-32. As a player, I want a Voice to fall silent and lose its Pulse while I am holding it, so that I do not hear erratic hits as its distance changes.
+32. As a player, I want a Voice to keep sounding from where it was and lose its Pulse while I am holding it, so that moving it leaves no gap and I do not hear erratic hits as its distance changes.
 33. As a player, I want the Link to follow the Voice faintly while I drag it, so that I keep seeing its connection to the Core.
 34. As a player, I want the Ring and angular division where the Voice would land to be highlighted while I drag, so that I know the result before I let go.
 35. As a player, I want a dropped Voice's Pulse to appear already at the position that matches the global time, so that the Voice enters in time rather than restarting from zero.
@@ -176,7 +176,7 @@ The music starts with the first Voice dropped. Tapping the Core pauses and resum
 - The concrete implementation uses Tone.js. Kick, Snare and Tom are Tone synths; Clap, Closed Hat and Open Hat are samples. Samples must be CC0-licensed and are preloaded while the user is looking at the empty canvas, so no loading state is shown.
 - Hits are scheduled ahead of time against the audio clock, never triggered from the animation frame, so rhythm stays tight when frames drop.
 - The six Sounds are balanced with a fixed mix; there is no per-Voice volume.
-- A Voice that is being dragged is not part of what is scheduled; it re-enters on drop.
+- A Voice that is being dragged stays scheduled at the position it was picked up from; it takes its new position on drop.
 
 ### scene
 

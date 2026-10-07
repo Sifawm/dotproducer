@@ -10,7 +10,6 @@ import {
   pointToPosition,
   positionToPoint,
   pulseProgress,
-  removeVoice,
   ringDistance,
   type Beats,
   type Point,
@@ -253,8 +252,7 @@ export const createPixiScene = (theme: SceneTheme): Scene => {
 
     // Ripples and cues come from the same hits that are scheduled for audio.
     if (lastPosition !== null && position > lastPosition && position - lastPosition < MAX_FRAME_BEATS) {
-      const audible = heldId === null ? state.pattern : removeVoice(state.pattern, heldId);
-      for (const hit of hitsInWindow(audible, lastPosition, position)) {
+      for (const hit of hitsInWindow(state.pattern, lastPosition, position)) {
         ripples.push({ sound: hit.sound, bornAt: now });
         cuedAt.set(hit.voiceId, now);
       }
