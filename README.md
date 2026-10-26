@@ -8,6 +8,10 @@ A small music-making app where rhythmic patterns emerge from placing dots around
 
 <video src="demo-techno.mp4" controls muted width="720"></video>
 
+## Try it
+
+https://sifawm.github.io/dotproducer/
+
 ## Running
 
 ```sh
