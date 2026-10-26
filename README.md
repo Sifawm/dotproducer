@@ -4,9 +4,7 @@ A small music-making app where rhythmic patterns emerge from placing dots around
 
 ## Demo
 
-[demo-techno.mp4](demo-techno.mp4): a techno Pattern built from Voices around the Core.
-
-<video src="demo-techno.mp4" controls muted width="720"></video>
+https://github.com/user-attachments/assets/ad3118ba-6ccb-446a-a8ce-42ae15982170
 
 ## Try it
 
