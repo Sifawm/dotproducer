@@ -2,7 +2,7 @@ import type { Pattern, Voice, VoiceId } from './pattern';
 import type { Sound } from './sound';
 import type { Angle, Beats, Period, Phase, RingDistance, Seconds, Tempo } from './units';
 
-const BEATS_PER_BAR = 4;
+export const BEATS_PER_BAR = 4;
 const FIRST_RING_PERIOD = BEATS_PER_BAR / 16;
 
 /** 1/16 of a bar on the first Ring, doubling on each Ring after it, exponential in between. */
@@ -45,6 +45,20 @@ export const hitsInWindow = (pattern: Pattern, from: Beats, to: Beats): readonly
   }
   return hits.sort((a, b) => a.at - b.at);
 };
+
+/** An audio export always covers this many bars. */
+export const EXPORTED_BARS = 4;
+
+/**
+ * The hits of an export: the first bars of playback after one pre-roll bar, Muted
+ * Voices excluded. The first exported bar starts at 0, so pre-roll hits are negative;
+ * the pre-roll is rendered for its tails and then discarded.
+ */
+export const exportedHits = (pattern: Pattern, bars: number): readonly Hit[] =>
+  hitsInWindow(pattern, 0 as Beats, ((bars + 1) * BEATS_PER_BAR) as Beats).map((hit) => ({
+    ...hit,
+    at: (hit.at - BEATS_PER_BAR) as Beats,
+  }));
 
 /** Maps the audio clock onto the musical timeline; pausing and Tempo changes never make it jump. */
 export interface Timeline {
