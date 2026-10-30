@@ -8,7 +8,7 @@ export interface ExportControlProps {
   onExport(format: AudioFormat): Promise<void>;
 }
 
-const FORMAT_NAMES: Readonly<Record<AudioFormat, string>> = { wav: 'WAV' };
+const FORMAT_NAMES: Readonly<Record<AudioFormat, string>> = { wav: 'WAV', mp3: 'MP3' };
 
 /**
  * Exports the Pattern as an audio file, choosing the format in a modal dialog.
