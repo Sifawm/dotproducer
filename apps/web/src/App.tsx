@@ -20,6 +20,7 @@ import {
   startTimeline,
   toggleMuted,
   vacantPosition,
+  type AudioFormat,
   type Pattern,
   type Position,
   type Sound,
@@ -29,6 +30,7 @@ import {
 import type { Scene, SceneIntent } from '@dotproducer/scene';
 import {
   ClearControl,
+  ExportControl,
   Hint,
   KeyboardMirror,
   MagnetControl,
@@ -52,6 +54,12 @@ const START_DELAY_SECONDS = 0.05;
 const LATE_SECONDS = 0.05;
 
 const patternInUrl = (): Pattern => decodePattern(window.location.hash.slice(1));
+
+/** YYYY-MM-DD on the user's own calendar. */
+const localDate = (date: Date): string =>
+  [date.getFullYear(), date.getMonth() + 1, date.getDate()]
+    .map((part) => String(part).padStart(2, '0'))
+    .join('-');
 
 export const App = ({ audio, scene }: AppProps): ReactElement => {
   const host = useRef<HTMLDivElement>(null);
@@ -159,6 +167,17 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
   const clear = (): void => {
     setAnnouncement('Pattern cleared');
     commit(clearVoices(pattern));
+  };
+
+  /** Renders the current Pattern and hands it to the browser as a download. */
+  const download = async (format: AudioFormat): Promise<void> => {
+    const file = await audio.render(pattern, format);
+    const url = URL.createObjectURL(file);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `dotproducer-${pattern.tempo}bpm-${localDate(new Date())}.${format}`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const onIntent = useEffectEvent((intent: SceneIntent): void => {
@@ -277,6 +296,7 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
       />
       <MagnetControl on={magnet} onToggle={() => setMagnet(!magnet)} />
       <ClearControl disabled={pattern.voices.length === 0} onClear={clear} />
+      <ExportControl disabled={pattern.voices.length === 0} onExport={download} />
       <Hint visible={pattern.voices.length === 0 && !hintDismissed} />
     </main>
   );

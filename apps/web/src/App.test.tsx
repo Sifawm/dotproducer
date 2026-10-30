@@ -1,7 +1,7 @@
 import type { Sound } from '@dotproducer/model';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 import { FakeAudioEngine, FakeScene } from './fakes';
 
@@ -50,9 +50,9 @@ const clearButton = () => screen.getByRole<HTMLButtonElement>('button', { name: 
 const hint = () => screen.queryByText('Drag a dot onto the canvas', { ignore: '[aria-hidden="true"]' });
 
 beforeEach(() => {
-  // Only the timers the application runs on; Testing Library needs a real setTimeout.
+  // Only the timers and the date the application runs on; Testing Library needs a real setTimeout.
   vi.useFakeTimers({
-    toFake: ['setInterval', 'clearInterval', 'requestAnimationFrame', 'cancelAnimationFrame'],
+    toFake: ['setInterval', 'clearInterval', 'requestAnimationFrame', 'cancelAnimationFrame', 'Date'],
   });
   audio = new FakeAudioEngine();
   audio.time = 10;
@@ -480,5 +480,125 @@ describe('URL', () => {
     expect(voiceButtons()).toHaveLength(0);
     expect(hint()).not.toBeNull();
     expect(screen.getByRole('spinbutton', { name: 'Tempo' }).textContent).toBe('120');
+  });
+});
+
+describe('exporting', () => {
+  const exportButton = () => screen.getByRole<HTMLButtonElement>('button', { name: 'Export' });
+  const dialog = () => screen.queryByRole('dialog', { name: 'Export' });
+  const downloadButton = () =>
+    screen.getByRole<HTMLButtonElement>('button', { name: /^(Download|Rendering…)$/ });
+  const formats = () =>
+    screen
+      .getAllByRole<HTMLInputElement>('radio')
+      .map((radio) => [radio.labels?.[0]?.textContent, radio.checked]);
+
+  let downloads: { name: string; href: string }[];
+  let revoked: string[];
+
+  beforeAll(() => {
+    // jsdom knows <dialog> but not showModal() or close(): stand in for the browser's.
+    HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+      this.open = true;
+    };
+    HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
+      if (!this.open) return;
+      this.open = false;
+      this.dispatchEvent(new Event('close'));
+    };
+    document.addEventListener('keydown', (event) => {
+      const modal = document.querySelector<HTMLDialogElement>('dialog[open]');
+      if (event.key === 'Escape' && modal?.dispatchEvent(new Event('cancel', { cancelable: true }))) {
+        modal.close();
+      }
+    });
+  });
+
+  beforeEach(() => {
+    downloads = [];
+    revoked = [];
+    // jsdom has neither object URLs nor downloads: record what the browser would be given.
+    URL.createObjectURL = () => 'blob:rendered-pattern';
+    URL.revokeObjectURL = (url) => void revoked.push(url);
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      downloads.push({ name: this.download, href: this.href });
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('shows Export disabled on an empty Pattern and enables it once a Voice is dropped', () => {
+    open();
+    expect(exportButton().disabled).toBe(true);
+    drop('kick');
+    expect(exportButton().disabled).toBe(false);
+  });
+
+  it('opens a dialog with WAV selected, which Cancel and Escape close without rendering', async () => {
+    open('#v1~120~k3_0');
+    await user.click(exportButton());
+    expect(dialog()).not.toBeNull();
+    expect(formats()).toEqual([['WAV', true]]);
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(dialog()).toBeNull();
+    expect(document.activeElement).toBe(exportButton());
+
+    await user.click(exportButton());
+    await user.keyboard('{Escape}');
+    expect(dialog()).toBeNull();
+    expect(document.activeElement).toBe(exportButton());
+    expect(audio.renders).toEqual([]);
+  });
+
+  it('downloads the current Pattern as WAV, named after its Tempo and the local date', async () => {
+    vi.setSystemTime(new Date(2026, 9, 30, 0, 30));
+    open('#v1~96~k3_0~S3_0.5');
+    await user.click(exportButton());
+    await user.click(downloadButton());
+
+    const [pending] = audio.renders;
+    expect(audio.renders).toHaveLength(1);
+    expect(pending?.format).toBe('wav');
+    expect(pending?.pattern).toEqual(scene.state?.pattern);
+    expect(downloadButton().textContent).toBe('Rendering…');
+    expect(downloadButton().disabled).toBe(true);
+    expect(downloads).toEqual([]);
+
+    await act(async () => pending?.resolve(new Blob([], { type: 'audio/wav' })));
+    expect(downloads).toEqual([{ name: 'dotproducer-96bpm-2026-10-30.wav', href: 'blob:rendered-pattern' }]);
+    expect(revoked).toEqual(['blob:rendered-pattern']);
+    expect(dialog()).toBeNull();
+    expect(document.activeElement).toBe(exportButton());
+  });
+
+  it('keeps the Pattern playing while it renders', async () => {
+    open();
+    drop('kick');
+    await user.click(exportButton());
+    await user.click(downloadButton());
+    const before = audio.played.length;
+    wait(1);
+    expect(audio.played.length).toBeGreaterThan(before);
+  });
+
+  it('shows an error when the export fails, keeping the dialog open for a retry', async () => {
+    open('#v1~120~k3_0');
+    await user.click(exportButton());
+    await user.click(downloadButton());
+    await act(async () => audio.renders[0]?.reject(new Error('offline')));
+    expect(dialog()).not.toBeNull();
+    expect(screen.getByRole('alert').textContent).toBe('Export failed. Try again.');
+    expect(downloadButton().textContent).toBe('Download');
+    expect(downloadButton().disabled).toBe(false);
+
+    await user.click(downloadButton());
+    expect(audio.renders).toHaveLength(2);
+    expect(screen.queryByRole('alert')).toBeNull();
+    await act(async () => audio.renders[1]?.resolve(new Blob([], { type: 'audio/wav' })));
+    expect(downloads).toHaveLength(1);
+    expect(dialog()).toBeNull();
   });
 });

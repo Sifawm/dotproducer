@@ -1,14 +1,29 @@
 import type { AudioEngine } from '@dotproducer/audio';
-import { seconds, type Seconds, type Sound } from '@dotproducer/model';
+import {
+  seconds,
+  type AudioFormat,
+  type Pattern,
+  type Seconds,
+  type Sound,
+} from '@dotproducer/model';
 import type { Scene, SceneIntent, SceneState } from '@dotproducer/scene';
 
-/** An audio engine with a clock the test moves by hand, recording what it is asked to play. */
+/** A render the test finishes by hand, either way. */
+export interface PendingRender {
+  readonly pattern: Pattern;
+  readonly format: AudioFormat;
+  resolve(file: Blob): void;
+  reject(error: Error): void;
+}
+
+/** An audio engine with a clock the test moves by hand, recording what it is asked to play and render. */
 export class FakeAudioEngine implements AudioEngine {
   time = 0;
   unlocked = false;
   silences = 0;
   readonly played: { sound: Sound; at: Seconds }[] = [];
   readonly auditioned: Sound[] = [];
+  readonly renders: PendingRender[] = [];
 
   unlock(): void {
     this.unlocked = true;
@@ -24,6 +39,9 @@ export class FakeAudioEngine implements AudioEngine {
   }
   silence(): void {
     this.silences++;
+  }
+  render(pattern: Pattern, format: AudioFormat): Promise<Blob> {
+    return new Promise((resolve, reject) => this.renders.push({ pattern, format, resolve, reject }));
   }
 }
 
