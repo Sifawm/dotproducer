@@ -53,6 +53,9 @@ const START_DELAY_SECONDS = 0.05;
 /** Hits found later than this (a throttled background tab) are skipped rather than bunched up. */
 const LATE_SECONDS = 0.05;
 
+/** How long a downloaded file stays reachable by its object URL. */
+const RELEASE_DOWNLOAD_MS = 60_000;
+
 const patternInUrl = (): Pattern => decodePattern(window.location.hash.slice(1));
 
 /** YYYY-MM-DD on the user's own calendar. */
@@ -72,6 +75,7 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
   const [hintDismissed, setHintDismissed] = useState(false);
   const [announcement, setAnnouncement] = useState('');
   const playing = timeline?.running ?? false;
+  const empty = pattern.voices.length === 0;
 
   const show = (next: Pattern): void => {
     setPattern(next);
@@ -177,7 +181,8 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
     link.href = url;
     link.download = `dotproducer-${pattern.tempo}bpm-${localDate(new Date())}.${format}`;
     link.click();
-    URL.revokeObjectURL(url);
+    // Firefox and Safari read the file after click() returns: release it well after.
+    setTimeout(() => URL.revokeObjectURL(url), RELEASE_DOWNLOAD_MS);
   };
 
   const onIntent = useEffectEvent((intent: SceneIntent): void => {
@@ -295,9 +300,9 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
         onCommit={(tempo) => commit(setTempo(pattern, tempo))}
       />
       <MagnetControl on={magnet} onToggle={() => setMagnet(!magnet)} />
-      <ClearControl disabled={pattern.voices.length === 0} onClear={clear} />
-      <ExportControl disabled={pattern.voices.length === 0} onExport={download} />
-      <Hint visible={pattern.voices.length === 0 && !hintDismissed} />
+      <ClearControl disabled={empty} onClear={clear} />
+      <ExportControl disabled={empty} onExport={download} />
+      <Hint visible={empty && !hintDismissed} />
     </main>
   );
 };

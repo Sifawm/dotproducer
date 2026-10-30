@@ -252,5 +252,5 @@ The music starts with the first Voice dropped. Tapping the Core pauses and resum
 - The single most important property of the design is that a Pattern is a pure function of geometry and time: the same drawing always sounds the same. Any feature that would make sound depend on when or in what order things were placed breaks sharing by URL and should be rejected or redesigned.
 - Colour must never be the only way to tell Sounds apart; shape or size carries the same information.
 - Minimalism is a hard requirement: the only persistent interface elements are the Dock, the Tempo number and the Magnet, Clear and Export controls. New features should be expressed through the canvas and its gestures before adding any control.
-- Visual and motion details (palette, typography, exact Ripple shapes, easing, layout of the three controls, light or dark ground) are intentionally left to the impeccable session and are not decided by this spec.
+- Visual and motion details (palette, typography, exact Ripple shapes, easing, layout of the Magnet, Clear and Export controls, light or dark ground) are intentionally left to the impeccable session and are not decided by this spec.
 - The CC0 samples for Clap, Closed Hat and Open Hat still need to be sourced; if a suitable Clap cannot be found, a synthesised one is an acceptable fallback behind the same audio interface.

@@ -50,6 +50,8 @@ export const ExportControl = ({ disabled, onExport }: ExportControlProps): React
         ref={dialog}
         className="export-dialog"
         aria-labelledby={titleId}
+        // A render cannot be called off: Escape waits for it, like Cancel.
+        onCancel={(event) => rendering && event.preventDefault()}
         onClose={() => opener.current?.focus()}
       >
         <h2 id={titleId}>Export</h2>
@@ -70,7 +72,7 @@ export const ExportControl = ({ disabled, onExport }: ExportControlProps): React
         </fieldset>
         {failed && <p role="alert">Export failed. Try again.</p>}
         <div className="export-actions">
-          <button type="button" onClick={() => dialog.current?.close()}>
+          <button type="button" disabled={rendering} onClick={() => dialog.current?.close()}>
             Cancel
           </button>
           <button type="button" disabled={rendering} onClick={() => void download()}>

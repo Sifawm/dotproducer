@@ -1,6 +1,9 @@
 const HEADER_BYTES = 44;
 const BYTES_PER_SAMPLE = 3;
 
+/** Clips a sample to full scale, [-1, 1]; a missing one is silence. */
+export const clipSample = (sample = 0): number => Math.min(1, Math.max(-1, sample));
+
 /**
  * Encodes rendered channels as a RIFF/WAVE file of 24-bit signed little-endian PCM,
  * channels interleaved. Samples beyond full scale are clipped, never normalised.
@@ -30,7 +33,7 @@ export const encodeWav = (channels: readonly Float32Array[], sampleRate: number)
   let offset = HEADER_BYTES;
   for (let frame = 0; frame < frames; frame++) {
     for (const channel of channels) {
-      const sample = Math.min(1, Math.max(-1, channel[frame] ?? 0));
+      const sample = clipSample(channel[frame]);
       const value = Math.round(sample < 0 ? sample * 0x800000 : sample * 0x7fffff);
       view.setUint8(offset, value & 0xff);
       view.setUint8(offset + 1, (value >> 8) & 0xff);

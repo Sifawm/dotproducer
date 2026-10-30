@@ -6,10 +6,12 @@ type Trigger = (time: number) => void;
 
 /** One set of the six Sounds, playing into its own bus. */
 export interface ToneKit {
-  /** The gain every Sound of the kit goes through on its way to the destination. */
-  readonly bus: Gain;
   /** Plays a Sound at an instant on the kit's context clock. */
   play(sound: Sound, at: number): void;
+  /** From an instant on, lets every Sound of the kit through again. */
+  open(at: number): void;
+  /** From an instant on, keeps every Sound of the kit unheard, dropping any change scheduled after it. */
+  close(at: number): void;
 }
 
 /** Monophonic synths reject two triggers at the same instant. */
@@ -73,7 +75,11 @@ export const createToneKit = (context: BaseContext, destination: InputNode): Ton
   };
   const lastTrigger = new Map<Sound, number>();
   return {
-    bus,
+    open: (at) => void bus.gain.setValueAtTime(1, at),
+    close: (at) => {
+      bus.gain.cancelScheduledValues(at);
+      bus.gain.setValueAtTime(0, at);
+    },
     play: (sound, at) => {
       const time = Math.max(at, context.currentTime);
       if (time - (lastTrigger.get(sound) ?? -Infinity) < MIN_RETRIGGER_SECONDS) return;
