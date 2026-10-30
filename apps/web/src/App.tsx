@@ -276,7 +276,7 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
         onCommit={(tempo) => commit(setTempo(pattern, tempo))}
       />
       <MagnetControl on={magnet} onToggle={() => setMagnet(!magnet)} />
-      {pattern.voices.length > 0 && <ClearControl onClear={clear} />}
+      <ClearControl disabled={pattern.voices.length === 0} onClear={clear} />
       <Hint visible={pattern.voices.length === 0 && !hintDismissed} />
     </main>
   );
