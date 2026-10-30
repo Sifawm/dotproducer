@@ -1,4 +1,8 @@
+import { clipSample } from './wav';
+
 const BITRATE = 192_000;
+/** mediabunny keeps registered encoders for the page's lifetime and warns on a repeat. */
+let encoderRegistered = false;
 
 /**
  * Encodes rendered channels as a 192 kbps CBR MP3 with LAME, through mediabunny.
@@ -8,7 +12,10 @@ const BITRATE = 192_000;
 export const encodeMp3 = async (channels: readonly Float32Array[], sampleRate: number): Promise<Blob> => {
   const [{ AudioSample, AudioSampleSource, BufferTarget, Mp3OutputFormat, Output, Quality }, { registerMp3Encoder }] =
     await Promise.all([import('mediabunny'), import('@mediabunny/mp3-encoder')]);
-  registerMp3Encoder();
+  if (!encoderRegistered) {
+    registerMp3Encoder();
+    encoderRegistered = true;
+  }
 
   const output = new Output({ format: new Mp3OutputFormat(), target: new BufferTarget() });
   const source = new AudioSampleSource({
@@ -20,7 +27,7 @@ export const encodeMp3 = async (channels: readonly Float32Array[], sampleRate: n
 
   const frames = channels[0]?.length ?? 0;
   const planar = new Float32Array(frames * channels.length);
-  channels.forEach((channel, index) => planar.set(channel, index * frames));
+  channels.forEach((channel, index) => planar.set(channel.map(clipSample), index * frames));
   const sample = new AudioSample({
     data: planar,
     format: 'f32-planar',
