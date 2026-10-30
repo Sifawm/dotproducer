@@ -6,6 +6,7 @@ import {
   beats,
   beatsToSeconds,
   emptyPattern,
+  exportedHits,
   hitsInWindow,
   pauseTimeline,
   period,
@@ -18,6 +19,7 @@ import {
   seconds,
   secondsAt,
   startTimeline,
+  SOUNDS,
   tempo,
   toggleMuted,
   type Pattern,
@@ -185,5 +187,107 @@ describe('timeline', () => {
     const slower = retimeTimeline(started, tempo(60), seconds(12));
     const times = hitsInWindow(pattern, beats(3), beats(7)).map((hit) => secondsAt(slower, hit.at));
     expect(times).toEqual([11, 12, 13, 14]);
+  });
+});
+
+describe('exported hits', () => {
+  const BAR = 4;
+  interface VoiceSpec {
+    readonly sound: Sound;
+    readonly distance: number;
+    readonly turns: number;
+    readonly muted: boolean;
+  }
+  const patternOf = (voices: readonly VoiceSpec[]): Pattern =>
+    voices.reduce((pattern, { sound, distance, turns, muted }) => {
+      const next = withVoice(pattern, sound, distance, turns);
+      const added = next.voices[next.voices.length - 1];
+      return muted && next !== pattern && added ? toggleMuted(next, added.id) : next;
+    }, emptyPattern);
+  const sound = fc.constantFrom(...SOUNDS);
+  const turns = fc.double({ min: 0, max: 0.999, noNaN: true });
+  const patterns = fc
+    .array(
+      fc.record({
+        sound,
+        distance: fc.double({ min: 1, max: 5, noNaN: true }),
+        turns,
+        muted: fc.boolean(),
+      }),
+      { maxLength: 6 },
+    )
+    .map(patternOf);
+  /** Placed with the Magnet: on whole Rings and angular divisions. */
+  const patternsOnRings = fc
+    .array(fc.record({ sound, distance: fc.double({ min: 1, max: 5, noNaN: true }), turns }), {
+      minLength: 1,
+      maxLength: 6,
+    })
+    .map((voices) =>
+      voices.reduce(
+        (pattern, voice) =>
+          addVoice(
+            pattern,
+            voice.sound,
+            { distance: ringDistance(voice.distance), angle: angle(voice.turns) },
+            true,
+          ),
+        emptyPattern,
+      ),
+    );
+
+  it('begin with the pre-roll bar on a timeline where the first exported bar starts at 0', () => {
+    const pattern = withVoice(emptyPattern, 'kick', 5, 0.5);
+    expect(exportedHits(pattern, 4).map((hit) => hit.at)).toEqual([-2, 2, 6, 10, 14]);
+  });
+
+  it('lie within the pre-roll bar and the exported bars', () => {
+    fc.assert(
+      fc.property(patterns, (pattern) => {
+        for (const hit of exportedHits(pattern, 4)) {
+          expect(hit.at).toBeGreaterThanOrEqual(-BAR);
+          expect(hit.at).toBeLessThan(4 * BAR);
+        }
+      }),
+    );
+  });
+
+  it('never come from a Muted Voice', () => {
+    fc.assert(
+      fc.property(patterns, (pattern) => {
+        const muted = new Set(pattern.voices.filter((voice) => voice.muted).map((voice) => voice.id));
+        expect(exportedHits(pattern, 4).filter((hit) => muted.has(hit.voiceId))).toEqual([]);
+      }),
+    );
+  });
+
+  it('are the hits of the first five bars of playback, one bar earlier', () => {
+    fc.assert(
+      fc.property(patterns, (pattern) => {
+        const played = hitsInWindow(pattern, beats(0), beats(5 * BAR));
+        const exported = exportedHits(pattern, 4);
+        expect(exported.map((hit) => [hit.voiceId, hit.sound])).toEqual(
+          played.map((hit) => [hit.voiceId, hit.sound]),
+        );
+        exported.forEach((hit, index) =>
+          expect(hit.at + BAR).toBeCloseTo(played[index]?.at ?? Number.NaN, 9),
+        );
+      }),
+    );
+  });
+
+  it('repeat bar after bar for a Pattern on whole Rings, so the export loops seamlessly', () => {
+    fc.assert(
+      fc.property(patternsOnRings, (pattern) => {
+        const hits = exportedHits(pattern, 4);
+        const bar = (index: number) =>
+          hits
+            .filter((hit) => Math.floor(hit.at / BAR) === index)
+            .map((hit) => ({ sound: hit.sound, at: hit.at - index * BAR }));
+        const [preRoll, ...exported] = [-1, 0, 1, 2, 3].map(bar);
+        expect(preRoll).not.toEqual([]);
+        for (const each of exported) expect(each).toEqual(preRoll);
+      }),
+    );
   });
 });

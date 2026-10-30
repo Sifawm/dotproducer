@@ -1,7 +1,49 @@
-import type { Seconds } from '@dotproducer/model';
-import { getContext, start } from 'tone';
+import {
+  BEATS_PER_BAR,
+  EXPORTED_BARS,
+  beats,
+  beatsToSeconds,
+  exportedHits,
+  type AudioFormat,
+  type Pattern,
+  type Seconds,
+} from '@dotproducer/model';
+import { Offline, getContext, start } from 'tone';
 import type { AudioEngine } from './audio-engine';
 import { createToneKit } from './tone-kit';
+import { encodeWav } from './wav';
+
+const EXPORT_SAMPLE_RATE = 48000;
+const EXPORT_CHANNELS = 2;
+
+const ENCODERS: Readonly<Record<AudioFormat, (channels: readonly Float32Array[]) => Blob>> = {
+  wav: (channels) => new Blob([encodeWav(channels, EXPORT_SAMPLE_RATE)], { type: 'audio/wav' }),
+};
+
+/**
+ * Renders the pre-roll bar and the exported bars on an offline context with a kit of
+ * their own, then keeps only the exported bars: they open with the pre-roll's tails.
+ */
+const renderPattern = async (pattern: Pattern, format: AudioFormat): Promise<Blob> => {
+  const bar = beatsToSeconds(beats(BEATS_PER_BAR), pattern.tempo);
+  const rendered = await Offline(
+    (context) => {
+      const kit = createToneKit(context, context.destination);
+      for (const hit of exportedHits(pattern, EXPORTED_BARS)) {
+        kit.play(hit.sound, bar + beatsToSeconds(hit.at, pattern.tempo));
+      }
+    },
+    (EXPORTED_BARS + 1) * bar,
+    EXPORT_CHANNELS,
+    EXPORT_SAMPLE_RATE,
+  );
+  const from = Math.round(bar * EXPORT_SAMPLE_RATE);
+  const to = from + Math.round(EXPORTED_BARS * bar * EXPORT_SAMPLE_RATE);
+  const channels = Array.from({ length: EXPORT_CHANNELS }, (_, channel) =>
+    rendered.getChannelData(channel).subarray(from, to),
+  );
+  return ENCODERS[format](channels);
+};
 
 export const createToneAudioEngine = (): AudioEngine => {
   const context = getContext();
@@ -29,5 +71,6 @@ export const createToneAudioEngine = (): AudioEngine => {
       pattern.bus.gain.setValueAtTime(0, now());
       silenced = true;
     },
+    render: renderPattern,
   };
 };

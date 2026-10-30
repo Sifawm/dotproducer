@@ -5,3 +5,4 @@ export * from './geometry';
 export * from './timing';
 export * from './fanout';
 export * from './codec';
+export * from './audio-format';
