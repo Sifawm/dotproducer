@@ -540,7 +540,11 @@ describe('exporting', () => {
     open('#v1~120~k3_0');
     await user.click(exportButton());
     expect(dialog()).not.toBeNull();
-    expect(formats()).toEqual([['WAV', true]]);
+    expect(screen.getByRole('group', { name: 'Format' })).not.toBeNull();
+    expect(formats()).toEqual([
+      ['WAV', true],
+      ['MP3', false],
+    ]);
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(dialog()).toBeNull();
@@ -572,6 +576,25 @@ describe('exporting', () => {
     expect(revoked).toEqual(['blob:rendered-pattern']);
     expect(dialog()).toBeNull();
     expect(document.activeElement).toBe(exportButton());
+  });
+
+  it('downloads the current Pattern as MP3 when MP3 is chosen, without remembering the choice', async () => {
+    vi.setSystemTime(new Date(2026, 9, 30, 0, 30));
+    open('#v1~128~k3_0');
+    await user.click(exportButton());
+    await user.click(screen.getByRole('radio', { name: 'MP3' }));
+    await user.click(downloadButton());
+
+    const [pending] = audio.renders;
+    expect(pending?.format).toBe('mp3');
+    await act(async () => pending?.resolve(new Blob([], { type: 'audio/mpeg' })));
+    expect(downloads).toEqual([{ name: 'dotproducer-128bpm-2026-10-30.mp3', href: 'blob:rendered-pattern' }]);
+
+    await user.click(exportButton());
+    expect(formats()).toEqual([
+      ['WAV', true],
+      ['MP3', false],
+    ]);
   });
 
   it('keeps the Pattern playing while it renders', async () => {

@@ -11,13 +11,15 @@ import {
 import { Offline, getContext, start } from 'tone';
 import type { AudioEngine } from './audio-engine';
 import { createToneKit } from './tone-kit';
+import { encodeMp3 } from './mp3';
 import { encodeWav } from './wav';
 
 const EXPORT_SAMPLE_RATE = 48000;
 const EXPORT_CHANNELS = 2;
 
-const ENCODERS: Readonly<Record<AudioFormat, (channels: readonly Float32Array[]) => Blob>> = {
+const ENCODERS: Readonly<Record<AudioFormat, (channels: readonly Float32Array[]) => Blob | Promise<Blob>>> = {
   wav: (channels) => new Blob([encodeWav(channels, EXPORT_SAMPLE_RATE)], { type: 'audio/wav' }),
+  mp3: (channels) => encodeMp3(channels, EXPORT_SAMPLE_RATE),
 };
 
 /**
