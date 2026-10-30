@@ -207,14 +207,13 @@ The music starts with the first Voice dropped. Tapping the Core pauses and resum
 ### Audio export
 
 - An **Export** control sits next to Magnet and Clear. Like Clear, it is always shown and is disabled (native `disabled`, reduced opacity, out of the tab order) while the Pattern has no Voices.
-- It opens a native modal `<dialog>`, restyled with the shared tokens including its `::backdrop`, with a labelled format choice (WAV, selected by default and not remembered between openings), Cancel and Download. Escape and Cancel close it without rendering, and focus returns to Export.
+- It opens a native modal `<dialog>`, restyled with the shared tokens including its `::backdrop`, with a labelled format choice (WAV, selected by default and not remembered between openings, or MP3), Cancel and Download. Escape and Cancel close it without rendering, and focus returns to Export.
 - Rendering is done in the browser, offline and faster than real time, on an `OfflineAudioContext` at 48 kHz stereo, with no backend. Real-time recording was rejected as slow, glitch-prone and WebM-only.
 - An export is always 4 bars at the current Tempo. One pre-roll bar is rendered first and discarded, so the file starts with the tails of the bar before it and loops seamlessly. **model** provides the exported hits as a pure function next to the hits in a window: the first five bars of playback on a timeline where the first exported bar starts at 0, Muted Voices excluded.
 - The Sound kit is built by one factory that receives its audio context and destination. The live engine and the offline render each get their own kit, so the Sounds are identical in both and an export can run while the Pattern plays without disturbing it.
-- The level is not normalised: samples are clipped to full scale when encoded. WAV is 24-bit PCM, encoded by a small dependency-free function in **audio**.
+- The level is not normalised: samples are clipped to full scale when encoded. WAV is 24-bit PCM, encoded by a small dependency-free function in **audio**. MP3 is 192 kbps CBR at 48 kHz stereo, encoded by LAME (WASM, in a worker) through `mediabunny` and `@mediabunny/mp3-encoder`. Both are loaded with a dynamic `import()` only when MP3 is exported, so they ship as separate chunks and never weigh on the first load; a failed load is reported like any other export failure.
 - The audio engine interface gains one operation: render and encode a Pattern in a format, resolving to a `Blob` with the right MIME type. The application turns it into a download named `dotproducer-<tempo>bpm-<YYYY-MM-DD>.<extension>` on the local date.
 - While rendering, Download is disabled and reads "Rendering…". On success the dialog closes; on failure a short error is shown inline, the dialog stays open and Download can be retried.
-- MP3 export (192 kbps CBR, LAME through `mediabunny`, loaded on demand) is the next step and is not built yet.
 
 ### Delivery order
 

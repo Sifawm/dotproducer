@@ -22,3 +22,7 @@ The format is `#v1~<bpm>~<voice>~…`, each Voice being `<letter><ring 1-5>_<ang
 pnpm install
 pnpm dev
 ```
+
+## Credits
+
+MP3 export uses the [LAME MP3 Encoder](https://lame.sourceforge.io/) (LGPL) through [mediabunny](https://mediabunny.dev/).
