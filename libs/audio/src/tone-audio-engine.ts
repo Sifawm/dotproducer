@@ -1,75 +1,15 @@
-import type { Seconds, Sound } from '@dotproducer/model';
-import { Filter, Gain, MembraneSynth, NoiseSynth, getContext, start } from 'tone';
+import type { Seconds } from '@dotproducer/model';
+import { getContext, start } from 'tone';
 import type { AudioEngine } from './audio-engine';
-
-type Trigger = (time: number) => void;
-
-/** Monophonic synths reject two triggers at the same instant. */
-const MIN_RETRIGGER_SECONDS = 0.005;
-
-const membrane = (
-  output: Gain,
-  note: string,
-  volume: number,
-  pitchDecay: number,
-  octaves: number,
-  decay: number,
-): Trigger => {
-  const synth = new MembraneSynth({
-    volume,
-    pitchDecay,
-    octaves,
-    envelope: { attack: 0.001, decay, sustain: 0, release: 0.05 },
-  }).connect(output);
-  return (time) => synth.triggerAttackRelease(note, decay, time);
-};
-
-const noise = (
-  output: Gain,
-  volume: number,
-  filter: 'highpass' | 'bandpass',
-  frequency: number,
-  decay: number,
-): Trigger => {
-  const shaped = new Filter(frequency, filter).connect(output);
-  const synth = new NoiseSynth({
-    volume,
-    noise: { type: 'white' },
-    envelope: { attack: 0.001, decay, sustain: 0, release: 0.02 },
-  }).connect(shaped);
-  return (time) => synth.triggerAttackRelease(decay, time);
-};
-
-// ponytail: all six Sounds are synthesised. The spec wants CC0 samples for Clap,
-// Closed Hat and Open Hat; swap those three triggers for Tone.Player once sourced.
-const now = (): number => getContext().currentTime;
-
-/** One set of the six Sounds on its own output, triggered in time order. */
-const createKit = (output: Gain): ((sound: Sound, at: number) => void) => {
-  // The fixed mix: volumes in dB.
-  const triggers: Readonly<Record<Sound, Trigger>> = {
-    kick: membrane(output, 'C1', -2, 0.05, 6, 0.4),
-    snare: noise(output, -8, 'bandpass', 1800, 0.18),
-    clap: noise(output, -6, 'bandpass', 1100, 0.12),
-    closedHat: noise(output, -16, 'highpass', 7000, 0.04),
-    openHat: noise(output, -18, 'highpass', 7000, 0.3),
-    tom: membrane(output, 'G2', -6, 0.08, 2, 0.3),
-  };
-  const lastTrigger = new Map<Sound, number>();
-  return (sound, at) => {
-    const time = Math.max(at, now());
-    if (time - (lastTrigger.get(sound) ?? -Infinity) < MIN_RETRIGGER_SECONDS) return;
-    lastTrigger.set(sound, time);
-    triggers[sound](time);
-  };
-};
+import { createToneKit } from './tone-kit';
 
 export const createToneAudioEngine = (): AudioEngine => {
+  const context = getContext();
+  const now = (): number => context.currentTime;
   // The Pattern is scheduled ahead of the clock, so auditioning gets a kit of its
   // own: a tap on the Dock must sound now, whatever is already queued.
-  const patternOutput = new Gain(1).toDestination();
-  const playInPattern = createKit(patternOutput);
-  const playNow = createKit(new Gain(1).toDestination());
+  const pattern = createToneKit(context, context.destination);
+  const auditionKit = createToneKit(context, context.destination);
   let silenced = false;
 
   return {
@@ -77,16 +17,16 @@ export const createToneAudioEngine = (): AudioEngine => {
     now: () => now() as Seconds,
     play: (sound, at) => {
       if (silenced) {
-        patternOutput.gain.setValueAtTime(1, now());
+        pattern.bus.gain.setValueAtTime(1, now());
         silenced = false;
       }
-      playInPattern(sound, at);
+      pattern.play(sound, at);
     },
-    audition: (sound) => playNow(sound, now()),
+    audition: (sound) => auditionKit.play(sound, now()),
     // Closed until the next hit is scheduled, so tails and queued hits stay unheard.
     silence: () => {
-      patternOutput.gain.cancelScheduledValues(now());
-      patternOutput.gain.setValueAtTime(0, now());
+      pattern.bus.gain.cancelScheduledValues(now());
+      pattern.bus.gain.setValueAtTime(0, now());
       silenced = true;
     },
   };
