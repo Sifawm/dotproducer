@@ -52,7 +52,7 @@ export const createToneAudioEngine = (): AudioEngine => {
   const now = (): number => context.currentTime;
   // The Pattern is scheduled ahead of the clock, so auditioning gets a kit of its
   // own: a tap on the Dock must sound now, whatever is already queued.
-  const pattern = createToneKit(context, context.destination);
+  const patternKit = createToneKit(context, context.destination);
   const auditionKit = createToneKit(context, context.destination);
   let silenced = false;
 
@@ -61,16 +61,15 @@ export const createToneAudioEngine = (): AudioEngine => {
     now: () => now() as Seconds,
     play: (sound, at) => {
       if (silenced) {
-        pattern.bus.gain.setValueAtTime(1, now());
+        patternKit.open(now());
         silenced = false;
       }
-      pattern.play(sound, at);
+      patternKit.play(sound, at);
     },
     audition: (sound) => auditionKit.play(sound, now()),
     // Closed until the next hit is scheduled, so tails and queued hits stay unheard.
     silence: () => {
-      pattern.bus.gain.cancelScheduledValues(now());
-      pattern.bus.gain.setValueAtTime(0, now());
+      patternKit.close(now());
       silenced = true;
     },
     render: renderPattern,
