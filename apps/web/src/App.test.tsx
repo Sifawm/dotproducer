@@ -46,6 +46,7 @@ const gaps = (times: readonly number[]) => times.slice(1).map((time, index) => t
 const voiceButtons = () =>
   screen.queryAllByRole('button').filter((button) => button.closest('[aria-label="Voices"]'));
 const status = () => screen.getByRole('status').textContent;
+const clearButton = () => screen.getByRole<HTMLButtonElement>('button', { name: 'Clear' });
 const hint = () => screen.queryByText('Drag a dot onto the canvas', { ignore: '[aria-hidden="true"]' });
 
 beforeEach(() => {
@@ -265,28 +266,30 @@ describe('pointer intents', () => {
 });
 
 describe('clearing', () => {
-  it('offers nothing to clear on an empty canvas', () => {
+  it('shows Clear disabled on an empty Pattern and enables it once a Voice is dropped', () => {
     open();
-    expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull();
+    expect(clearButton().disabled).toBe(true);
+    drop('kick');
+    expect(clearButton().disabled).toBe(false);
   });
 
   it('removes every Voice in one step that Back can undo, keeping the Tempo', async () => {
     open('#v1~96~k3_0~s3_0.5');
     const before = window.history.length;
-    await user.click(screen.getByRole('button', { name: 'Clear' }));
+    await user.click(clearButton());
     expect(voiceButtons()).toHaveLength(0);
     expect(scene.state?.pattern.voices).toEqual([]);
     expect(status()).toBe('Pattern cleared');
     expect(window.location.hash).toBe('#v1~96');
     expect(window.history.length).toBe(before + 1);
-    expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull();
+    expect(clearButton().disabled).toBe(true);
   });
 
   it('stops the hits', async () => {
     open();
     drop('kick');
     wait(1);
-    await user.click(screen.getByRole('button', { name: 'Clear' }));
+    await user.click(clearButton());
     wait(0.2);
     const cleared = audio.played.length;
     wait(2);

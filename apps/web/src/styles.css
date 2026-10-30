@@ -55,6 +55,12 @@ body {
   text-decoration: line-through;
 }
 
+/* Shared by every global control that can be unavailable. */
+button:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
 .tempo:focus-visible,
 .magnet:focus-visible,
 .clear:focus-visible {
