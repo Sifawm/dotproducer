@@ -8,6 +8,12 @@ importers:
 
   .:
     dependencies:
+      '@mediabunny/mp3-encoder':
+        specifier: ^1.63.0
+        version: 1.63.0(mediabunny@1.63.0)
+      mediabunny:
+        specifier: ^1.63.0
+        version: 1.63.0
       pixi.js:
         specifier: ^8.22.0
         version: 8.22.0
@@ -777,6 +783,11 @@ packages:
   '@keyv/serialize@1.1.1':
     resolution: {integrity: sha512-dXn3FZhPv0US+7dtJsIi2R+c7qWYiReoEh5zUntWCf4oSpMNib8FDhSoed6m3QyZdx5hK7iLFkYk3rNxwt8vTA==}
 
+  '@mediabunny/mp3-encoder@1.63.0':
+    resolution: {integrity: sha512-sKmxgquOQ0mXs54X+WmkRsysBLGaFYB38Effh8W90p1JI9M1qMOFkRHO8GfsNYvcGHG6Xsdku51kXKAjvbfUuQ==}
+    peerDependencies:
+      mediabunny: ^1.0.0
+
   '@napi-rs/wasm-runtime@0.2.4':
     resolution: {integrity: sha512-9zESzOO5aDByvhIAsOy9TbpZ0Ur2AJbUI7UT73kcUTS2mxAMHOBaa1st/jAymNoCtvrit99kkzT1FZuXVcgfIQ==}
 
@@ -1010,6 +1021,12 @@ packages:
 
   '@types/deep-eql@4.0.2':
     resolution: {integrity: sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==}
+
+  '@types/dom-mediacapture-transform@0.1.12':
+    resolution: {integrity: sha512-d7/QsLRwF864A5mgIM/YrfiglHoYn7zgCcAoJgW404r+2DwnNr7EBbLnCWpmOMgH8y0te73L1AV6H1bmauaWFw==}
+
+  '@types/dom-webcodecs@0.1.13':
+    resolution: {integrity: sha512-O5hkiFIcjjszPIYyUSyvScyvrBoV3NOEEZx/pMlsu44TKzWNkLVBBxnxJz42in5n3QIolYOcBYFCPZZ0h8SkwQ==}
 
   '@types/earcut@3.0.0':
     resolution: {integrity: sha512-k/9fOUGO39yd2sCjrbAJvGDEQvRwRnQIZlBz43roGwUZo5SHAmyVvSFyaVVZkicRVCaDXPKlbxrUcBuJoSWunQ==}
@@ -1909,6 +1926,9 @@ packages:
 
   mdn-data@2.27.1:
     resolution: {integrity: sha512-9Yubnt3e8A0OKwxYSXyhLymGW4sCufcLG6VdiDdUGVkPhpqLxlvP5vl1983gQjJl3tqbrM731mjaZaP68AgosQ==}
+
+  mediabunny@1.63.0:
+    resolution: {integrity: sha512-6958wlfDtass/zNcuSuGzUzFT9ciwEFd5AzDa02EQdPmifB4URcTcZoyQ//Ln5e47Z6EC3EJuKr3MM037w89OA==}
 
   mime-db@1.52.0:
     resolution: {integrity: sha512-sPU4uV7dYlvtWJxwwxHD0PuihVNiE7TyAbQ5SWxDCB9mUYvOgroQOwYQQOKPJ8CIbE+1ETVlOoK1UC2nU3gYvg==}
@@ -3365,6 +3385,10 @@ snapshots:
 
   '@keyv/serialize@1.1.1': {}
 
+  '@mediabunny/mp3-encoder@1.63.0(mediabunny@1.63.0)':
+    dependencies:
+      mediabunny: 1.63.0
+
   '@napi-rs/wasm-runtime@0.2.4':
     dependencies:
       '@emnapi/core': 1.4.5
@@ -3583,6 +3607,12 @@ snapshots:
       assertion-error: 2.0.1
 
   '@types/deep-eql@4.0.2': {}
+
+  '@types/dom-mediacapture-transform@0.1.12':
+    dependencies:
+      '@types/dom-webcodecs': 0.1.13
+
+  '@types/dom-webcodecs@0.1.13': {}
 
   '@types/earcut@3.0.0': {}
 
@@ -4453,6 +4483,11 @@ snapshots:
   math-intrinsics@1.1.0: {}
 
   mdn-data@2.27.1: {}
+
+  mediabunny@1.63.0:
+    dependencies:
+      '@types/dom-mediacapture-transform': 0.1.12
+      '@types/dom-webcodecs': 0.1.13
 
   mime-db@1.52.0: {}
 

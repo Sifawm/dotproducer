@@ -20,6 +20,7 @@ import {
   startTimeline,
   toggleMuted,
   vacantPosition,
+  type AudioFormat,
   type Pattern,
   type Position,
   type Sound,
@@ -29,6 +30,7 @@ import {
 import type { Scene, SceneIntent } from '@dotproducer/scene';
 import {
   ClearControl,
+  ExportControl,
   Hint,
   KeyboardMirror,
   MagnetControl,
@@ -51,7 +53,16 @@ const START_DELAY_SECONDS = 0.05;
 /** Hits found later than this (a throttled background tab) are skipped rather than bunched up. */
 const LATE_SECONDS = 0.05;
 
+/** How long a downloaded file stays reachable by its object URL. */
+const RELEASE_DOWNLOAD_MS = 60_000;
+
 const patternInUrl = (): Pattern => decodePattern(window.location.hash.slice(1));
+
+/** YYYY-MM-DD on the user's own calendar. */
+const localDate = (date: Date): string =>
+  [date.getFullYear(), date.getMonth() + 1, date.getDate()]
+    .map((part) => String(part).padStart(2, '0'))
+    .join('-');
 
 export const App = ({ audio, scene }: AppProps): ReactElement => {
   const host = useRef<HTMLDivElement>(null);
@@ -64,6 +75,7 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
   const [hintDismissed, setHintDismissed] = useState(false);
   const [announcement, setAnnouncement] = useState('');
   const playing = timeline?.running ?? false;
+  const empty = pattern.voices.length === 0;
 
   const show = (next: Pattern): void => {
     setPattern(next);
@@ -159,6 +171,18 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
   const clear = (): void => {
     setAnnouncement('Pattern cleared');
     commit(clearVoices(pattern));
+  };
+
+  /** Renders the current Pattern and hands it to the browser as a download. */
+  const download = async (format: AudioFormat): Promise<void> => {
+    const file = await audio.render(pattern, format);
+    const url = URL.createObjectURL(file);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `dotproducer-${pattern.tempo}bpm-${localDate(new Date())}.${format}`;
+    link.click();
+    // Firefox and Safari read the file after click() returns: release it well after.
+    setTimeout(() => URL.revokeObjectURL(url), RELEASE_DOWNLOAD_MS);
   };
 
   const onIntent = useEffectEvent((intent: SceneIntent): void => {
@@ -276,8 +300,9 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
         onCommit={(tempo) => commit(setTempo(pattern, tempo))}
       />
       <MagnetControl on={magnet} onToggle={() => setMagnet(!magnet)} />
-      {pattern.voices.length > 0 && <ClearControl onClear={clear} />}
-      <Hint visible={pattern.voices.length === 0 && !hintDismissed} />
+      <ClearControl disabled={empty} onClear={clear} />
+      <ExportControl disabled={empty} onExport={download} />
+      <Hint visible={empty && !hintDismissed} />
     </main>
   );
 };

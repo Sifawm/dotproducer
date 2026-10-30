@@ -17,7 +17,8 @@ body {
 
 .tempo,
 .magnet,
-.clear {
+.clear,
+.export {
   position: absolute;
   top: max(1rem, env(safe-area-inset-top));
   padding: 0.5rem;
@@ -34,13 +35,20 @@ body {
   touch-action: none;
 }
 
-.clear {
+.clear,
+.export {
   top: calc(max(1rem, env(safe-area-inset-top)) + 2.5rem);
   opacity: 0.6;
 }
 
+.export {
+  top: calc(max(1rem, env(safe-area-inset-top)) + 5rem);
+}
+
 .magnet,
-.clear {
+.clear,
+.export,
+.export-dialog button {
   right: max(1rem, env(safe-area-inset-right));
   border: 0;
   background: none;
@@ -55,12 +63,72 @@ body {
   text-decoration: line-through;
 }
 
+/* Shared by every global control that can be unavailable. */
+button:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
 .tempo:focus-visible,
 .magnet:focus-visible,
-.clear:focus-visible {
+.clear:focus-visible,
+.export:focus-visible,
+.export-dialog :focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: 2px;
   border-radius: 0.25rem;
+}
+
+.export-dialog {
+  min-width: min(18rem, calc(100vw - 2rem));
+  padding: 1.25rem;
+  border: 1px solid color-mix(in srgb, var(--ink) 25%, transparent);
+  border-radius: 0.75rem;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font);
+}
+
+.export-dialog::backdrop {
+  background: color-mix(in srgb, var(--ground, #000) 70%, transparent);
+}
+
+.export-dialog h2 {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  font-weight: normal;
+}
+
+.export-dialog fieldset {
+  display: flex;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.export-dialog legend {
+  margin-bottom: 0.5rem;
+  opacity: 0.6;
+}
+
+.export-dialog input {
+  accent-color: var(--ink);
+}
+
+.export-dialog [role='alert'] {
+  margin: 1rem 0 0;
+}
+
+.export-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+.export-dialog button {
+  padding: 0.5rem;
 }
 
 .hint {

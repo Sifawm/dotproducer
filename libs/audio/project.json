@@ -4,5 +4,5 @@
   "sourceRoot": "libs/audio/src",
   "projectType": "library",
   "tags": ["scope:audio"],
-  "targets": { "typecheck": {} }
+  "targets": { "typecheck": {}, "test": {} }
 }
