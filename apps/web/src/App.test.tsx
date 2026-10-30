@@ -573,7 +573,37 @@ describe('exporting', () => {
 
     await act(async () => pending?.resolve(new Blob([], { type: 'audio/wav' })));
     expect(downloads).toEqual([{ name: 'dotproducer-96bpm-2026-10-30.wav', href: 'blob:rendered-pattern' }]);
+    expect(dialog()).toBeNull();
+    expect(document.activeElement).toBe(exportButton());
+  });
+
+  it('keeps the file alive for the browser to download, then releases it', async () => {
+    // A fake setTimeout too, still moving with real time so that Testing Library keeps working.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval', 'clearInterval'], shouldAdvanceTime: true });
+    open('#v1~120~k3_0');
+    await user.click(exportButton());
+    await user.click(downloadButton());
+    await act(async () => audio.renders[0]?.resolve(new Blob([], { type: 'audio/wav' })));
+    expect(downloads).toHaveLength(1);
+    act(() => vi.advanceTimersByTime(1000));
+    expect(revoked).toEqual([]);
+    act(() => vi.advanceTimersByTime(60_000));
     expect(revoked).toEqual(['blob:rendered-pattern']);
+  });
+
+  it('cannot be cancelled while it renders, by Cancel or by Escape', async () => {
+    open('#v1~120~k3_0');
+    await user.click(exportButton());
+    await user.click(downloadButton());
+    const cancel = screen.getByRole<HTMLButtonElement>('button', { name: 'Cancel' });
+    expect(cancel.disabled).toBe(true);
+
+    await user.keyboard('{Escape}');
+    expect(dialog()).not.toBeNull();
+
+    await act(async () => audio.renders[0]?.reject(new Error('offline')));
+    expect(cancel.disabled).toBe(false);
+    await user.keyboard('{Escape}');
     expect(dialog()).toBeNull();
     expect(document.activeElement).toBe(exportButton());
   });
