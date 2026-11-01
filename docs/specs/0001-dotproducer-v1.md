@@ -146,6 +146,18 @@ The music starts with the first Voice dropped. Tapping the Core pauses and resum
 80. As a screen reader user, I want each Voice announced with its Sound, its Ring and its Phase (for example "Kick, Ring 3, off the beat"), so that I can understand the Pattern without seeing it.
 81. As a screen reader user, I want changes I make (move, mute, remove) to be announced, so that I get confirmation of each action.
 
+### Tap tempo
+
+82. As a player, I want to set the Tempo by tapping its beat on the Tempo number, so that I can match a song without a new control.
+83. As a player, I want a press that moves less than 4 px to count as a tap and anything more to keep dragging, so that tapping and dragging never get confused.
+84. As a player, I want the Tempo to change only from the fourth tap, and then follow the average of the latest three intervals, so that an accidental double click never jumps the Tempo and I can keep refining it.
+85. As a player, I want a pause of more than 2 s, or leaving the Tempo number, to end the tapping and keep the Tempo as one step of history, so that the back button undoes a whole tapping session at once.
+86. As a player, I want taps faster than 180 BPM or slower than 60 BPM to be clamped to the range, so that the number still reacts and shows the limit.
+87. As a player, I want tap tempo to work before playback, while paused and while playing, with Pulses retiming smoothly, so that I can use it at any moment.
+88. As a player, I want tap tempo to change only the Tempo and never where the bar falls, so that the Pattern keeps its place.
+89. As a player, I want the Tempo number to flash briefly (opacity only) on each tap, so that I can see the taps are being counted before the Tempo changes.
+90. As a keyboard user, I want the T key to count as a tap when the Tempo is focused, so that tap tempo has a keyboard equivalent.
+
 ## Implementation Decisions
 
 ### Workspace and modules
@@ -194,6 +206,7 @@ The music starts with the first Voice dropped. Tapping the Core pauses and resum
 - **ui** contains the React pieces that are HTML rather than canvas: the Tempo control, the Magnet control, the first-visit hint, and the keyboard mirror.
 - The keyboard mirror is a visually hidden but focusable layer with one control per Dock dot, per Voice and for the Core, kept in sync with the Pattern. It carries the accessible names and live announcements, and translates key presses into the same intents the scene emits. Keyboard movement operates on the Magnet grid only (five Rings by eight angular divisions); Free placement by keyboard is not supported.
 - The Tempo control is a draggable number (pointer) and a spin button (keyboard), 60 to 180 BPM.
+- Tap tempo lives in the Tempo control: a press under 4 px of movement, or `T` (declared with `aria-keyshortcuts`), is a tap. The Tempo from a list of tap times (at least four, averaging the latest three intervals, clamped to range) is a pure function in **model**. Each tap from the fourth shows the new Tempo; the session is committed once, after 2 s without a tap or on blur. No extra announcement: the spin button's value text already changes.
 - The Magnet control is a toggle. On desktop, holding Alt during a drag inverts it for that drag.
 
 ### Application
