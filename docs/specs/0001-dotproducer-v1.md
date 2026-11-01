@@ -2,7 +2,7 @@
 
 Labels: `ready-for-agent`
 
-This spec uses the vocabulary defined in `CONTEXT.md` (Pattern, Core, Voice, Sound, Muted, Dock, Link, Pulse, Ripple, Ring, Period, Phase, Tempo, Magnet, Free placement) and respects ADR 0001 (Pixi for the scene, HTML for the controls).
+This spec uses the vocabulary defined in `CONTEXT.md` (Pattern, Core, Voice, Sound, Muted, Dock, Link, Pulse, Ripple, Ring, Period, Phase, Tempo, Tap tempo, Magnet, Division, Straight, Triplet, Free placement) and respects ADR 0001 (Pixi for the scene, HTML for the controls) and ADR 0002 (the Magnet's Straight or Triplet belongs to the Pattern).
 
 ## Problem Statement
 
@@ -19,8 +19,8 @@ There is a single Core in the middle of the canvas. The user drags a dot out of 
 The geometry is the score:
 
 - **Distance sets the Period.** Five evenly spaced Rings surround the Core, from 1/16 of a bar (nearest) to 1 bar (farthest), each doubling the Period of the previous one. Farther means fewer hits per bar.
-- **Angle sets the Phase.** 12 o'clock is on the beat, 6 o'clock is off the beat, with eight angular divisions.
-- **The Magnet** snaps drops to Rings and angular divisions so everything locks to the Tempo; turning it off allows Free placement for polyrhythms and drifting patterns.
+- **Angle sets the Phase.** 12 o'clock is on the beat, 6 o'clock is off the beat, with eight Divisions in Straight and twelve in Triplet.
+- **The Magnet** snaps drops to Rings and Divisions so everything locks to the Tempo; turning it off allows Free placement for polyrhythms and drifting patterns.
 
 The music starts with the first Voice dropped. Tapping the Core pauses and resumes; tapping a Voice toggles Muted; dragging a Voice back to the Dock removes it. A single draggable number sets the Tempo. The whole Pattern lives in the URL, so reloading keeps it and copying the link shares it. The app works with a mouse, a finger or a keyboard, and its interface is in English.
 
@@ -59,7 +59,7 @@ The music starts with the first Voice dropped. Tapping the Core pauses and resum
 
 21. As a player, I want the angle of a Voice around the Core to set its Phase, so that I can offset Voices against each other.
 22. As a player, I want 12 o'clock to mean on the beat and 6 o'clock to mean off the beat on every Ring, so that the same angle always means the same musical thing.
-23. As a player, I want eight angular divisions, so that I can place off-beats and their halves with a finger.
+23. As a player, I want eight Divisions in Straight, so that I can place off-beats and their halves with a finger.
 24. As a player, I want to place a Kick at 12 o'clock and a Snare at 6 o'clock on the same Ring and hear them alternate, so that I can build a basic backbeat.
 
 ### Magnet and Free placement
@@ -158,6 +158,18 @@ The music starts with the first Voice dropped. Tapping the Core pauses and resum
 89. As a player, I want the Tempo number to flash briefly (opacity only) on each tap, so that I can see the taps are being counted before the Tempo changes.
 90. As a keyboard user, I want the T key to count as a tap when the Tempo is focused, so that tap tempo has a keyboard equivalent.
 
+### Triplet Magnet
+
+91. As a player, I want each tap on the Magnet to step through Straight, Triplet and off, so that I can snap to 12 Divisions for triplets and shuffles without a new control.
+92. As a player, I want the Magnet control to show its state in words, so that I can tell Straight from Triplet without relying on colour.
+93. As a player, I want switching between Straight and Triplet never to move a Voice already placed, so that changing state never changes what I hear.
+94. As a player, I want Straight or Triplet to be kept by reload, Back and shared links, and switching between them to be one step of history, so that whoever continues a Pattern edits on the same Divisions.
+95. As a player, I want every existing link to open in Straight exactly as before, so that nothing I shared breaks.
+96. As a player, I want the Ring I am dragging over to show the Divisions the drop will snap to, so that I see where the Voice lands before I let go.
+97. As a desktop player, I want Alt to place freely when the Magnet is on and to snap to the Pattern's Divisions when it is off, so that inverting the Magnet keeps working with three states.
+98. As a keyboard user, I want the arrows to step by one Division of the Pattern's Straight or Triplet, so that I can place triplets by keyboard.
+99. As a screen reader user, I want thirds and twelfths of the Period named as reduced fractions (for example "1/3 past the beat"), so that triplet Voices are as understandable as straight ones.
+
 ## Implementation Decisions
 
 ### Workspace and modules
@@ -173,7 +185,7 @@ The music starts with the first Voice dropped. Tapping the Core pauses and resum
 - **model** is a deep module of pure functions and immutable values. It owns:
   - The Pattern: a Tempo plus a collection of Voices. A Voice has an identity, a Sound, a distance from the Core, an angle, and a Muted flag. Distance is expressed in Ring units (1 to 5, fractional when in Free placement), never in pixels, so a Pattern is independent of screen size.
   - Pattern operations: add a Voice, move a Voice, remove a Voice, toggle Muted, set the Tempo. Each returns a new Pattern.
-  - Placement rules: with the Magnet on, a drop snaps to the nearest Ring and the nearest of eight angular divisions; with it off, distance and angle are kept as given. In both cases distance is clamped to the range between the first and last Ring. Adding or moving a Voice onto a Voice of the same Sound at the same position merges them into one.
+  - Placement rules: with the Magnet on, a drop snaps to the nearest Ring and the nearest Division of the Pattern's Straight (8) or Triplet (12); with it off, distance and angle are kept as given. In both cases distance is clamped to the range between the first and last Ring. Adding or moving a Voice onto a Voice of the same Sound at the same position merges them into one.
   - Geometry: converting a point in a canvas of a given size into a distance and angle around the Core, and back.
   - Timing: the Period of a Voice as a function of its distance and the Tempo. On Ring *n* the Period is 1/16 of a bar doubled *n − 1* times; between Rings it is interpolated exponentially. The Phase of a Voice as a fraction of its own Period, derived from its angle, with 12 o'clock as zero.
   - Playback as a pure function of time: given a Pattern and a position on the musical timeline, where each Pulse is along its Link; and given a window of the musical timeline, which hits (Voice, Sound, instant) fall inside it. Muted Voices still have Pulses but yield no hits.
@@ -204,10 +216,10 @@ The music starts with the first Voice dropped. Tapping the Core pauses and resum
 ### ui
 
 - **ui** contains the React pieces that are HTML rather than canvas: the Tempo control, the Magnet control, the first-visit hint, and the keyboard mirror.
-- The keyboard mirror is a visually hidden but focusable layer with one control per Dock dot, per Voice and for the Core, kept in sync with the Pattern. It carries the accessible names and live announcements, and translates key presses into the same intents the scene emits. Keyboard movement operates on the Magnet grid only (five Rings by eight angular divisions); Free placement by keyboard is not supported.
+- The keyboard mirror is a visually hidden but focusable layer with one control per Dock dot, per Voice and for the Core, kept in sync with the Pattern. It carries the accessible names and live announcements, and translates key presses into the same intents the scene emits. Keyboard movement operates on the Magnet grid only (five Rings by the Divisions of the Pattern's Straight or Triplet, even while the Magnet is off); Free placement by keyboard is not supported.
 - The Tempo control is a draggable number (pointer) and a spin button (keyboard), 60 to 180 BPM.
 - Tap tempo lives in the Tempo control: a press under 4 px of movement, or `T` (declared with `aria-keyshortcuts`), is a tap. The Tempo from a list of tap times (at least four, averaging the latest three intervals, clamped to range) is a pure function in **model**. Each tap from the fourth shows the new Tempo; the session is committed once, after 2 s without a tap or on blur. No extra announcement: the spin button's value text already changes.
-- The Magnet control is a toggle. On desktop, holding Alt during a drag inverts it for that drag.
+- The Magnet control steps through Straight, Triplet and off, showing its state in words; its accessible name includes the state and each change is announced. Straight or Triplet belongs to the Pattern (in the URL as the v2 `d` field, absent for Straight so those links stay `v1`); on/off is session state. On desktop, holding Alt during a drag inverts it for that drag: free placement when on, the Pattern's Divisions when off. While a drag would snap, the Ring under the pointer shows its Divisions.
 
 ### Application
 

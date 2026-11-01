@@ -5,7 +5,7 @@ A small music-making app where rhythmic patterns emerge from placing dots around
 ## Language
 
 **Pattern**:
-The complete set of Voices around the Core together with the Tempo; it is what gets preserved and shared. The same Pattern always sounds the same.
+The complete set of Voices around the Core together with the Tempo and whether the Magnet is Straight or Triplet; it is what gets preserved and shared. The same Pattern always sounds the same.
 _Avoid_: Song, project, loop, beat
 
 **Core**:
@@ -60,9 +60,21 @@ Setting the Tempo by tapping its beat on the Tempo number; the Tempo becomes the
 _Avoid_: Tap, beat detection, sync
 
 **Magnet**:
-The global state that decides whether Voices snap to Rings and angular divisions when dropped; when off, every placement is a Free placement.
+The state that decides whether Voices snap to Rings and Divisions when dropped: Straight, Triplet or off. Straight or Triplet belongs to the Pattern; off does not, and while off the Pattern keeps the last of the two. When off, every placement is a Free placement.
 _Avoid_: Snap, grid, free mode
 
+**Division**:
+Each of the equally spaced angles around the Core that the Magnet snaps a Voice to; the same Division means the same Phase on every Ring.
+_Avoid_: Angular division, slot, step, tick
+
+**Straight**:
+The Magnet state with 8 Divisions: on the beat, off the beat and their halves.
+_Avoid_: Binary, normal, even
+
+**Triplet**:
+The Magnet state with 12 Divisions, splitting the Period into thirds and their quarters. A Voice placed in Triplet is not a Free placement.
+_Avoid_: Tresillo mode, swing, shuffle
+
 **Free placement**:
-Placing a Voice at an arbitrary distance or angle, without snapping to Rings or angular divisions, with a Period or Phase not aligned to the Tempo.
+Placing a Voice at an arbitrary distance or angle, without snapping to Rings or Divisions, with a Period or Phase not aligned to the Tempo.
 _Avoid_: Free mode, unsnapped
