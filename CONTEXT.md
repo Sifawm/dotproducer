@@ -55,6 +55,10 @@ _Avoid_: Offset, swing, delay
 **Tempo**:
 The global beat (BPM) against which the Rings define their subdivisions.
 
+**Tap tempo**:
+Setting the Tempo by tapping its beat on the Tempo number; the Tempo becomes the average rate of the latest taps. It changes only the Tempo, never where the bar falls.
+_Avoid_: Tap, beat detection, sync
+
 **Magnet**:
 The global state that decides whether Voices snap to Rings and angular divisions when dropped; when off, every placement is a Free placement.
 _Avoid_: Snap, grid, free mode
