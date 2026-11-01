@@ -23,7 +23,10 @@ export type Phase = Brand<number, 'Phase'>;
 export const RINGS = [1, 2, 3, 4, 5] as const;
 export type Ring = (typeof RINGS)[number];
 export const RING_COUNT = RINGS.length;
-export const ANGULAR_DIVISIONS = 8;
+/** What the Magnet snaps to when on; it belongs to the Pattern. */
+export type MagnetMode = 'straight' | 'triplet';
+/** How many Divisions each Magnet mode splits a Period into. */
+export const DIVISIONS: Readonly<Record<MagnetMode, number>> = { straight: 8, triplet: 12 };
 export const MIN_TEMPO = 60;
 export const MAX_TEMPO = 180;
 export const DEFAULT_TEMPO = 120 as Tempo;
@@ -34,8 +37,13 @@ const clamp = (value: number, min: number, max: number): number =>
 export const ringDistance = (value: number): RingDistance =>
   clamp(value, 1, RING_COUNT) as RingDistance;
 
-export const angle = (turns: number): Angle =>
-  (Number.isFinite(turns) ? ((turns % 1) + 1) % 1 : 0) as Angle;
+/** Wraps into [0, 1) without adding a turn first, so that thirds and twelfths stay exact. */
+export const angle = (turns: number): Angle => {
+  if (!Number.isFinite(turns)) return 0 as Angle;
+  const rest = turns % 1;
+  // `% 1` again folds a tiny negative rest (which would round to 1) to 0; `+ 0` turns -0 into 0.
+  return (((rest < 0 ? rest + 1 : rest) % 1) + 0) as Angle;
+};
 
 export const tempo = (bpm: number): Tempo =>
   Math.round(clamp(bpm, MIN_TEMPO, MAX_TEMPO)) as Tempo;

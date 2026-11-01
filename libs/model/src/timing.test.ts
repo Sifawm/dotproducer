@@ -28,7 +28,7 @@ import {
 } from './index';
 
 const withVoice = (pattern: Pattern, sound: Sound, distance: number, turns: number): Pattern =>
-  addVoice(pattern, sound, { distance: ringDistance(distance), angle: angle(turns) }, false);
+  addVoice(pattern, sound, { distance: ringDistance(distance), angle: angle(turns) }, null);
 
 const first = (pattern: Pattern) => {
   const [voice] = pattern.voices;
@@ -231,7 +231,7 @@ describe('exported hits', () => {
             pattern,
             voice.sound,
             { distance: ringDistance(voice.distance), angle: angle(voice.turns) },
-            true,
+            'straight',
           ),
         emptyPattern,
       ),

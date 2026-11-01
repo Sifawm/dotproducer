@@ -1,12 +1,13 @@
 import type { Sound } from './sound';
 import {
-  ANGULAR_DIVISIONS,
   DEFAULT_TEMPO,
+  DIVISIONS,
   angle,
   ringDistance,
   tempo,
   type Angle,
   type Brand,
+  type MagnetMode,
   type Ring,
   type RingDistance,
   type Tempo,
@@ -27,19 +28,25 @@ export interface Voice extends Position {
 
 export interface Pattern {
   readonly tempo: Tempo;
+  /** The Divisions the Magnet snaps to; kept while the Magnet is off. */
+  readonly magnetMode: MagnetMode;
   readonly voices: readonly Voice[];
 }
 
-export const emptyPattern: Pattern = { tempo: DEFAULT_TEMPO, voices: [] };
+export const emptyPattern: Pattern = { tempo: DEFAULT_TEMPO, magnetMode: 'straight', voices: [] };
 
-/** Where a drop lands: snapped to the Magnet grid when the Magnet is on, always within the Rings. */
-export const place = (position: Position, magnet: boolean): Position => {
+/**
+ * Where a drop lands: on the nearest Ring and Division of the given mode, or as given
+ * (Free placement) when there is nothing to snap to; always within the Rings.
+ */
+export const place = (position: Position, magnet: MagnetMode | null): Position => {
   const distance = ringDistance(position.distance);
   const turns = angle(position.angle);
   if (!magnet) return { distance, angle: turns };
+  const divisions = DIVISIONS[magnet];
   return {
     distance: ringDistance(Math.round(distance)),
-    angle: angle(Math.round(turns * ANGULAR_DIVISIONS) / ANGULAR_DIVISIONS),
+    angle: angle(Math.round(turns * divisions) / divisions),
   };
 };
 
@@ -59,7 +66,7 @@ export const addVoice = (
   pattern: Pattern,
   sound: Sound,
   position: Position,
-  magnet: boolean,
+  magnet: MagnetMode | null,
 ): Pattern => {
   const placed = place(position, magnet);
   if (occupant(pattern, sound, placed)) return pattern;
@@ -76,7 +83,7 @@ export const moveVoice = (
   pattern: Pattern,
   id: VoiceId,
   position: Position,
-  magnet: boolean,
+  magnet: MagnetMode | null,
 ): Pattern => {
   const moving = pattern.voices.find((voice) => voice.id === id);
   if (!moving) return pattern;
@@ -114,15 +121,21 @@ export const setTempo = (pattern: Pattern, bpm: number): Pattern => ({
   tempo: tempo(bpm),
 });
 
+export const setMagnetMode = (pattern: Pattern, magnetMode: MagnetMode): Pattern => ({
+  ...pattern,
+  magnetMode,
+});
+
 const RING_PREFERENCE: readonly Ring[] = [3, 4, 2, 5, 1];
 
-/** The first Ring and angular division not yet taken by the given Sound, starting on Ring 3 on the beat. */
+/** The first Ring and Division of the Pattern's mode not yet taken by the given Sound, starting on Ring 3 on the beat. */
 export const vacantPosition = (pattern: Pattern, sound: Sound): Position => {
+  const divisions = DIVISIONS[pattern.magnetMode];
   for (const ring of RING_PREFERENCE) {
-    for (let division = 0; division < ANGULAR_DIVISIONS; division++) {
+    for (let division = 0; division < divisions; division++) {
       const position = {
         distance: ringDistance(ring),
-        angle: angle(division / ANGULAR_DIVISIONS),
+        angle: angle(division / divisions),
       };
       if (!occupant(pattern, sound, position)) return position;
     }
