@@ -39,11 +39,11 @@ export const emptyPattern: Pattern = { tempo: DEFAULT_TEMPO, magnetMode: 'straig
  * Where a drop lands: on the nearest Ring and Division of the given mode, or as given
  * (Free placement) when there is nothing to snap to; always within the Rings.
  */
-export const place = (position: Position, snap: MagnetMode | null): Position => {
+export const place = (position: Position, magnet: MagnetMode | null): Position => {
   const distance = ringDistance(position.distance);
   const turns = angle(position.angle);
-  if (!snap) return { distance, angle: turns };
-  const divisions = DIVISIONS[snap];
+  if (!magnet) return { distance, angle: turns };
+  const divisions = DIVISIONS[magnet];
   return {
     distance: ringDistance(Math.round(distance)),
     angle: angle(Math.round(turns * divisions) / divisions),
@@ -66,9 +66,9 @@ export const addVoice = (
   pattern: Pattern,
   sound: Sound,
   position: Position,
-  snap: MagnetMode | null,
+  magnet: MagnetMode | null,
 ): Pattern => {
-  const placed = place(position, snap);
+  const placed = place(position, magnet);
   if (occupant(pattern, sound, placed)) return pattern;
   const id = (Math.max(0, ...pattern.voices.map((voice) => voice.id)) + 1) as VoiceId;
   return { ...pattern, voices: [...pattern.voices, { id, sound, ...placed, muted: false }] };
@@ -83,11 +83,11 @@ export const moveVoice = (
   pattern: Pattern,
   id: VoiceId,
   position: Position,
-  snap: MagnetMode | null,
+  magnet: MagnetMode | null,
 ): Pattern => {
   const moving = pattern.voices.find((voice) => voice.id === id);
   if (!moving) return pattern;
-  const placed = place(position, snap);
+  const placed = place(position, magnet);
   if (occupant(pattern, moving.sound, placed, id)) return removeVoice(pattern, id);
   return {
     ...pattern,

@@ -1,4 +1,4 @@
-import type { Position, Sound, Voice } from '@dotproducer/model';
+import { DIVISIONS, type Angle, type Position, type Sound, type Voice } from '@dotproducer/model';
 
 export const SOUND_NAMES: Readonly<Record<Sound, string>> = {
   kick: 'Kick',
@@ -9,21 +9,22 @@ export const SOUND_NAMES: Readonly<Record<Sound, string>> = {
   tom: 'Tom',
 };
 
-/** Every Division of Straight (eighths) and Triplet (twelfths) is a whole number of 24ths. */
-const TWENTY_FOURTHS = 24;
-const EPSILON = 1e-9;
-
 const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
 
+/** Every Division of every Magnet mode is a whole number of these parts of the Period. */
+const PARTS = Object.values(DIVISIONS).reduce((a, b) => (a * b) / gcd(a, b));
+const EPSILON = 1e-9;
+
 /** "on the beat", "1/3 past the beat"…; null when the angle is on neither grid. */
-const divisionName = (turns: number): string | null => {
-  const exact = turns * TWENTY_FOURTHS;
-  const n = Math.round(exact);
-  if (Math.abs(exact - n) > EPSILON || (n % 2 !== 0 && n % 3 !== 0)) return null;
-  if (n === 0 || n === TWENTY_FOURTHS) return 'on the beat';
-  if (n === TWENTY_FOURTHS / 2) return 'off the beat';
-  const divisor = gcd(n, TWENTY_FOURTHS);
-  return `${n / divisor}/${TWENTY_FOURTHS / divisor} past the beat`;
+const divisionName = (turns: Angle): string | null => {
+  const exact = turns * PARTS;
+  const n = Math.round(exact) % PARTS;
+  const onADivision = Object.values(DIVISIONS).some((divisions) => n % (PARTS / divisions) === 0);
+  if (Math.abs(exact - Math.round(exact)) > EPSILON || !onADivision) return null;
+  if (n === 0) return 'on the beat';
+  if (n === PARTS / 2) return 'off the beat';
+  const divisor = gcd(n, PARTS);
+  return `${n / divisor}/${PARTS / divisor} past the beat`;
 };
 
 /** For example "Ring 3, off the beat"; Free placement is described approximately. */

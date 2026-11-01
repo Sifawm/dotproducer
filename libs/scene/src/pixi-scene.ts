@@ -94,8 +94,8 @@ const dockOf = (size: Size) => {
   };
 };
 
-/** Half the length of a Division tick, in Ring spacings. */
-const DIVISION_TICK = 0.12;
+/** Half the length of a Division mark, in Ring spacings. */
+const DIVISION_MARK = 0.12;
 
 // ponytail: the whole scene is one Graphics redrawn every frame. Fine for tens of
 // Voices; move to retained display objects per Voice if dense Patterns drop frames.
@@ -271,10 +271,10 @@ export const createPixiScene = (theme: SceneTheme): Scene => {
 
     // Where the dragged dot would land, and on which Divisions (none in Free placement).
     const magnet = gesture?.dragging ? state.magnet !== gesture.alt : state.magnet;
-    const snap = magnet ? state.pattern.magnetMode : null;
+    const magnetMode = magnet ? state.pattern.magnetMode : null;
     const landing =
       gesture?.dragging && !dockOf(size).contains(gesture.point)
-        ? place(pointToPosition(gesture.point, size), snap)
+        ? place(pointToPosition(gesture.point, size), magnetMode)
         : null;
 
     g.clear();
@@ -290,11 +290,11 @@ export const createPixiScene = (theme: SceneTheme): Scene => {
         alpha: ring === overRing ? (magnet ? 0.7 : 0.35) : dim,
       });
     }
-    if (landing && snap && overRing !== null) {
-      // A tick across the Ring at each Division the drop will snap to.
-      const divisions = DIVISIONS[snap];
-      const inner = (overRing - DIVISION_TICK) * ringSpacing;
-      const outer = (overRing + DIVISION_TICK) * ringSpacing;
+    if (landing && magnetMode && overRing !== null) {
+      // A mark across the Ring at each Division the drop will snap to.
+      const divisions = DIVISIONS[magnetMode];
+      const inner = (overRing - DIVISION_MARK) * ringSpacing;
+      const outer = (overRing + DIVISION_MARK) * ringSpacing;
       for (let division = 0; division < divisions; division++) {
         const radians = (division / divisions) * 2 * Math.PI;
         const [x, y] = [Math.sin(radians), -Math.cos(radians)];
@@ -304,7 +304,7 @@ export const createPixiScene = (theme: SceneTheme): Scene => {
     }
     if (landing) {
       const spot = positionToPoint(landing, size);
-      if (snap) {
+      if (magnetMode) {
         const edge = positionToPoint({ ...landing, distance: ringDistance(RING_COUNT) }, size);
         g.moveTo(core.x, core.y)
           .lineTo(edge.x, edge.y)

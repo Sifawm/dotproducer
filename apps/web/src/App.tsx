@@ -121,7 +121,7 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
   };
 
   /** What a drop snaps to: the Pattern's mode when the Magnet is on, inverted by Alt. */
-  const snapFor = (invertMagnet: boolean): MagnetMode | null =>
+  const magnetFor = (invertMagnet: boolean): MagnetMode | null =>
     magnet !== invertMagnet ? pattern.magnetMode : null;
 
   /** Straight → Triplet → off → Straight; only Straight and Triplet touch the Pattern. */
@@ -139,8 +139,8 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
     }
   };
 
-  const add = (sound: Sound, position: Position, snap: MagnetMode | null): void => {
-    const next = addVoice(pattern, sound, position, snap);
+  const add = (sound: Sound, position: Position, magnetMode: MagnetMode | null): void => {
+    const next = addVoice(pattern, sound, position, magnetMode);
     const added = next.voices[next.voices.length - 1];
     if (next !== pattern && added) {
       setAnnouncement(`${SOUND_NAMES[sound]} added, ${describePosition(added)}`);
@@ -150,8 +150,8 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
     start();
   };
 
-  const move = (id: VoiceId, position: Position, snap: MagnetMode | null): void => {
-    const next = moveVoice(pattern, id, position, snap);
+  const move = (id: VoiceId, position: Position, magnetMode: MagnetMode | null): void => {
+    const next = moveVoice(pattern, id, position, magnetMode);
     const before = pattern.voices.find((voice) => voice.id === id);
     const after = next.voices.find((voice) => voice.id === id);
     if (before) {
@@ -223,14 +223,14 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
         add(
           intent.sound,
           pointToPosition(intent.point, intent.canvas),
-          snapFor(intent.invertMagnet),
+          magnetFor(intent.invertMagnet),
         );
         break;
       case 'voiceDropped':
         move(
           intent.voiceId,
           pointToPosition(intent.point, intent.canvas),
-          snapFor(intent.invertMagnet),
+          magnetFor(intent.invertMagnet),
         );
         break;
       case 'voiceDroppedOnDock':

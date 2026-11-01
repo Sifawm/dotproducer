@@ -31,7 +31,7 @@ const only = (pattern: Pattern) => {
 };
 
 describe('placement', () => {
-  it('snaps to the nearer Ring and of the 8 Divisions in Straight', () => {
+  it('snaps to the nearer Ring and the nearer of the 8 Divisions in Straight', () => {
     expect(place(at(2.4, 0.49), 'straight')).toEqual(at(2, 0.5));
     expect(place(at(2.6, 0.07), 'straight')).toEqual(at(3, 0.125));
   });
@@ -40,7 +40,7 @@ describe('placement', () => {
     expect(place(at(1, 0.99), 'straight')).toEqual(at(1, 0));
   });
 
-  it('snaps to the nearer Ring and of the 12 Divisions in Triplet', () => {
+  it('snaps to the nearer Ring and the nearer of the 12 Divisions in Triplet', () => {
     expect(place(at(2.6, 0.65), 'triplet')).toEqual(at(3, 2 / 3));
     expect(place(at(3.1, 0.3), 'triplet')).toEqual(at(3, 1 / 3));
     expect(place(at(1.4, 0.07), 'triplet')).toEqual(at(1, 1 / 12));

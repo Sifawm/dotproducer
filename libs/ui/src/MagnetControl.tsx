@@ -1,15 +1,15 @@
 import type { MagnetMode } from '@dotproducer/model';
 import type { ReactElement } from 'react';
 
-export type MagnetShown = MagnetMode | 'off';
+export type MagnetState = MagnetMode | 'off';
 
 export interface MagnetControlProps {
-  readonly state: MagnetShown;
+  readonly state: MagnetState;
   /** Straight → Triplet → off → Straight. */
   onStep(): void;
 }
 
-export const MAGNET_NAMES: Readonly<Record<MagnetShown, string>> = {
+export const MAGNET_NAMES: Readonly<Record<MagnetState, string>> = {
   straight: 'Straight',
   triplet: 'Triplet',
   off: 'Off',

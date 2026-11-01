@@ -6,7 +6,7 @@ export {
   MAGNET_NAMES,
   MagnetControl,
   type MagnetControlProps,
-  type MagnetShown,
+  type MagnetState,
 } from './MagnetControl';
 export { TempoControl, type TempoControlProps } from './TempoControl';
 export { SOUND_NAMES, describePosition, describeVoice } from './labels';

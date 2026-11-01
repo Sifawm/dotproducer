@@ -35,7 +35,7 @@ const patterns = fc
         sound: fc.constantFrom(...SOUNDS),
         distance: fc.double({ min: 1, max: 5, noNaN: true }),
         turns: fc.double({ min: 0, max: 0.999, noNaN: true }),
-        snap: fc.constantFrom('straight' as const, 'triplet' as const, null),
+        magnet: fc.constantFrom('straight' as const, 'triplet' as const, null),
         muted: fc.boolean(),
       }),
       { maxLength: 12 },
@@ -43,8 +43,8 @@ const patterns = fc
   })
   .map(({ bpm, magnetMode, voices }) =>
     voices.reduce(
-      (pattern, { sound, distance, turns, snap, muted }) => {
-        const added = addVoice(pattern, sound, at(distance, turns), snap);
+      (pattern, { sound, distance, turns, magnet, muted }) => {
+        const added = addVoice(pattern, sound, at(distance, turns), magnet);
         const voice = added.voices[added.voices.length - 1];
         return muted && voice && added !== pattern ? toggleMuted(added, voice.id) : added;
       },
@@ -75,7 +75,7 @@ describe('URL codec', () => {
     expect(decodePattern('v2~96~k3_0')).toEqual(decodePattern('v1~96~k3_0'));
     expect(decodePattern('v2~96d8~k3_0')).toEqual(decodePattern('v1~96~k3_0'));
     expect(decodePattern('v2~96x5~k3_0')).toEqual(decodePattern('v1~96~k3_0'));
-    expect(decodePattern('v2~96x5d12q~k3_0')).toEqual(
+    expect(decodePattern('v2~96K3.x5d12q~k3_0')).toEqual(
       setMagnetMode(decodePattern('v1~96~k3_0'), 'triplet'),
     );
   });

@@ -42,8 +42,8 @@ const number = (text: string | undefined): number =>
 export const decodePattern = (text: string): Pattern => {
   const [version, header = '', ...voiceTexts] = text.split(SEPARATOR);
   if (version !== V1 && version !== V2) return emptyPattern;
-  // A v2 header is the Tempo followed by fields, each a lower-case letter and its value.
-  const tempoText = version === V1 ? header : header.replace(/[a-z].*/s, '');
+  // A v2 header is the Tempo's digits followed by fields, each a lower-case letter and its value.
+  const tempoText = version === V1 ? header : (/^\d*/.exec(header)?.[0] ?? '');
   const fields: readonly string[] = version === V1 ? [] : (header.match(/[a-z][^a-z]*/g) ?? []);
   const bpm = number(tempoText);
   const tempoSet = setTempo(emptyPattern, Number.isFinite(bpm) ? bpm : DEFAULT_TEMPO);
