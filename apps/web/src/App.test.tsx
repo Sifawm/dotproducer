@@ -1,5 +1,5 @@
 import type { Sound } from '@dotproducer/model';
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
@@ -480,6 +480,202 @@ describe('URL', () => {
     expect(voiceButtons()).toHaveLength(0);
     expect(hint()).not.toBeNull();
     expect(screen.getByRole('spinbutton', { name: 'Tempo' }).textContent).toBe('120');
+  });
+});
+
+describe('tap tempo', () => {
+  const tempoControl = () => screen.getByRole('spinbutton', { name: 'Tempo' });
+  /** A press on the Tempo that moves the pointer by the given amount before release. */
+  const press = (dx = 0, dy = 0): void => {
+    const at = { pointerId: 1, clientX: 100, clientY: 100 };
+    fireEvent.pointerDown(tempoControl(), at);
+    if (dx || dy) fireEvent.pointerMove(tempoControl(), { ...at, clientX: 100 + dx, clientY: 100 + dy });
+    fireEvent.pointerUp(tempoControl(), { ...at, clientX: 100 + dx, clientY: 100 + dy });
+  };
+  const keyTap = (): void => void fireEvent.keyDown(tempoControl(), { key: 't' });
+  const tapEvery = (apart: number, count: number, tap = press): void => {
+    for (let taps = 0; taps < count; taps++) {
+      if (taps > 0) wait(apart);
+      tap();
+    }
+  };
+
+  beforeAll(() => {
+    // jsdom has no pointer capture.
+    Element.prototype.setPointerCapture = () => undefined;
+  });
+
+  beforeEach(() => {
+    // The session ends on a timer, and taps are timed by the page's clock: both move with wait().
+    vi.useFakeTimers({
+      toFake: [
+        'setTimeout',
+        'clearTimeout',
+        'setInterval',
+        'clearInterval',
+        'requestAnimationFrame',
+        'cancelAnimationFrame',
+        'Date',
+        'performance',
+      ],
+    });
+  });
+
+  it('sets the Tempo from the fourth tap, never before', () => {
+    open();
+    tapEvery(0.75, 3);
+    expect(tempoControl().textContent).toBe('120');
+    wait(0.75);
+    press();
+    expect(tempoControl().textContent).toBe('80');
+  });
+
+  it('refines the Tempo with each further tap, from the latest three intervals', () => {
+    open();
+    tapEvery(1, 4);
+    expect(tempoControl().textContent).toBe('60');
+    wait(0.5);
+    tapEvery(0.5, 3);
+    expect(tempoControl().textContent).toBe('120');
+  });
+
+  it('counts T on the focused Tempo as a tap, and declares the shortcut', () => {
+    open();
+    expect(tempoControl().getAttribute('aria-keyshortcuts')).toBe('T');
+    act(() => tempoControl().focus());
+    tapEvery(0.75, 3, keyTap);
+    expect(tempoControl().textContent).toBe('120');
+    wait(0.75);
+    keyTap();
+    expect(tempoControl().textContent).toBe('80');
+    expect(tempoControl().getAttribute('aria-valuetext')).toBe('80 BPM');
+  });
+
+  it('ignores T with Ctrl, Alt or Meta held', () => {
+    open();
+    act(() => tempoControl().focus());
+    tapEvery(0.75, 4, () => void fireEvent.keyDown(tempoControl(), { key: 't', ctrlKey: true }));
+    expect(tempoControl().textContent).toBe('120');
+  });
+
+  it('keeps a drag or an arrow key after taps as a step of its own', () => {
+    open('#v1~120~k3_0');
+    const before = window.history.length;
+    tapEvery(0.75, 4);
+    press(0, -12);
+    expect(tempoControl().textContent).toBe('84');
+    expect(window.history.length).toBe(before + 2);
+    wait(2.1);
+    expect(window.history.length).toBe(before + 2);
+
+    act(() => tempoControl().focus());
+    tapEvery(0.75, 4, keyTap);
+    fireEvent.keyDown(tempoControl(), { key: 'ArrowUp' });
+    fireEvent.keyUp(tempoControl(), { key: 'ArrowUp' });
+    expect(tempoControl().textContent).toBe('81');
+    expect(window.location.hash).toBe('#v1~81~k3_0');
+    expect(window.history.length).toBe(before + 4);
+  });
+
+  it('drags on a release 4 px or more away, even without a move in between', () => {
+    open();
+    const at = { pointerId: 1, clientX: 100, clientY: 100 };
+    fireEvent.pointerDown(tempoControl(), at);
+    fireEvent.pointerUp(tempoControl(), { ...at, clientY: 88 });
+    expect(tempoControl().textContent).toBe('124');
+  });
+
+  it('reads a wobble under 4 px as a tap, and drags on a press that moves 4 px or more', () => {
+    open();
+    tapEvery(0.75, 4, () => press(3, -2));
+    expect(tempoControl().textContent).toBe('80');
+    wait(2.1);
+    // Four presses that move: each drags the Tempo up by 4 BPM and none of them is a tap.
+    tapEvery(0.75, 4, () => press(0, -12));
+    expect(tempoControl().textContent).toBe('96');
+    expect(window.location.hash).toBe('#v1~96');
+  });
+
+  it('starts a fresh session after 2 s without a tap', () => {
+    open();
+    tapEvery(0.75, 3);
+    wait(2.1);
+    press();
+    expect(tempoControl().textContent).toBe('120');
+    tapEvery(0.75, 3);
+    expect(tempoControl().textContent).toBe('120');
+    wait(0.75);
+    press();
+    expect(tempoControl().textContent).toBe('80');
+  });
+
+  it('starts a fresh session after leaving the Tempo', () => {
+    open();
+    act(() => tempoControl().focus());
+    tapEvery(0.75, 3, keyTap);
+    act(() => tempoControl().blur());
+    act(() => tempoControl().focus());
+    wait(0.75);
+    keyTap();
+    expect(tempoControl().textContent).toBe('120');
+  });
+
+  it('keeps a whole session as one step of history, which Back undoes', () => {
+    open('#v1~120~k3_0');
+    const before = window.history.length;
+    tapEvery(0.75, 6);
+    expect(tempoControl().textContent).toBe('80');
+    expect(window.location.hash).toBe('#v1~120~k3_0');
+    wait(2.1);
+    expect(window.location.hash).toBe('#v1~80~k3_0');
+    expect(window.history.length).toBe(before + 1);
+
+    act(() => {
+      window.history.replaceState(null, '', '#v1~120~k3_0');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    expect(tempoControl().textContent).toBe('120');
+  });
+
+  it('commits a session on blur, and adds nothing when the Tempo is unchanged', () => {
+    open('#v1~120~k3_0');
+    const before = window.history.length;
+    act(() => tempoControl().focus());
+    tapEvery(0.5, 5, keyTap);
+    wait(2.1);
+    tapEvery(0.75, 2, keyTap);
+    act(() => tempoControl().blur());
+    expect(window.history.length).toBe(before);
+
+    act(() => tempoControl().focus());
+    tapEvery(0.75, 4, keyTap);
+    act(() => tempoControl().blur());
+    expect(window.location.hash).toBe('#v1~80~k3_0');
+    expect(window.history.length).toBe(before + 1);
+  });
+
+  it('retimes every Pulse while playing', () => {
+    open();
+    drop('kick');
+    tapEvery(1, 4);
+    wait(0.3);
+    const from = audio.played.length;
+    wait(4);
+    for (const gap of gaps(playedTimes().slice(from))) expect(gap).toBeCloseTo(1);
+  });
+
+  it('works while paused, and the Pattern resumes at the new Tempo', () => {
+    open();
+    drop('kick');
+    wait(1);
+    act(() => scene.emit({ type: 'coreTapped' }));
+    tapEvery(1, 4);
+    expect(tempoControl().textContent).toBe('60');
+    act(() => scene.emit({ type: 'coreTapped' }));
+    wait(0.3);
+    const from = audio.played.length;
+    wait(4);
+    for (const gap of gaps(playedTimes().slice(from))) expect(gap).toBeCloseTo(1);
   });
 });
 

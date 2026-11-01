@@ -1,5 +1,6 @@
 import type { Pattern, Voice, VoiceId } from './pattern';
 import type { Sound } from './sound';
+import { tempo as toTempo } from './units';
 import type { Angle, Beats, Period, Phase, RingDistance, Seconds, Tempo } from './units';
 
 export const BEATS_PER_BAR = 4;
@@ -44,6 +45,17 @@ export const hitsInWindow = (pattern: Pattern, from: Beats, to: Beats): readonly
     }
   }
   return hits.sort((a, b) => a.at - b.at);
+};
+
+/** Tap tempo needs this many taps before it trusts them. */
+const TAPS_TO_TRUST = 4;
+
+/** The Tempo of a session of taps, from the average of its latest three intervals; null for fewer than four taps. */
+export const tappedTempo = (taps: readonly Seconds[]): Tempo | null => {
+  if (taps.length < TAPS_TO_TRUST) return null;
+  const latest = taps.slice(-TAPS_TO_TRUST);
+  const interval = ((latest[latest.length - 1] ?? 0) - (latest[0] ?? 0)) / (latest.length - 1);
+  return toTempo(60 / interval);
 };
 
 /** An audio export always covers this many bars. */
