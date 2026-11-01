@@ -14,7 +14,7 @@ import {
 const stack = (sounds: readonly Sound[], distance = 3, turns = 0.5): Pattern =>
   sounds.reduce(
     (pattern, sound) =>
-      addVoice(pattern, sound, { distance: ringDistance(distance), angle: angle(turns) }, true),
+      addVoice(pattern, sound, { distance: ringDistance(distance), angle: angle(turns) }, 'straight'),
     emptyPattern,
   );
 
@@ -59,7 +59,7 @@ describe('fan-out', () => {
       stack(['kick']),
       'snare',
       { distance: ringDistance(3), angle: angle(0.625) },
-      true,
+      'straight',
     );
     expect(shown(pattern)).toEqual([0.5, 0.625]);
   });

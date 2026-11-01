@@ -1,5 +1,5 @@
 import {
-  ANGULAR_DIVISIONS,
+  DIVISIONS,
   SOUNDS,
   angle,
   place,
@@ -19,7 +19,7 @@ export interface KeyboardMirrorProps {
   /** The latest change, read out by screen readers. */
   readonly announcement: string;
   onAddVoice(sound: Sound): void;
-  /** The position is always on the Magnet grid. */
+  /** The position is always on a Ring and a Division of the Pattern's Magnet mode. */
   onMoveVoice(id: VoiceId, position: Position): void;
   onToggleMuted(id: VoiceId): void;
   onSoloVoice(id: VoiceId): void;
@@ -28,7 +28,7 @@ export interface KeyboardMirrorProps {
   onFocusVoice(id: VoiceId | null): void;
 }
 
-/** One step on the Magnet grid per arrow key: up and down change Ring, left and right change division. */
+/** One step per arrow key: up and down change Ring, left and right change Division. */
 const STEPS: Readonly<Record<string, { readonly rings: number; readonly divisions: number }>> = {
   ArrowUp: { rings: 1, divisions: 0 },
   ArrowDown: { rings: -1, divisions: 0 },
@@ -58,10 +58,12 @@ export const KeyboardMirror = ({
     const step = STEPS[event.key];
     if (step) {
       event.preventDefault();
-      const from = place(voice, true);
+      // Even while the Magnet is off, the arrows stay on the Pattern's Divisions.
+      const mode = pattern.magnetMode;
+      const from = place(voice, mode);
       onMoveVoice(voice.id, {
         distance: ringDistance(from.distance + step.rings),
-        angle: angle(from.angle + step.divisions / ANGULAR_DIVISIONS),
+        angle: angle(from.angle + step.divisions / DIVISIONS[mode]),
       });
     } else if (event.key === 's' || event.key === 'S') {
       onSoloVoice(voice.id);

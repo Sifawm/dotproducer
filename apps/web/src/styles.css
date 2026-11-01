@@ -44,12 +44,12 @@ body {
 
 .clear,
 .export {
-  top: calc(max(1rem, env(safe-area-inset-top)) + 2.5rem);
+  top: calc(max(1rem, env(safe-area-inset-top)) + 3rem);
   opacity: 0.6;
 }
 
 .export {
-  top: calc(max(1rem, env(safe-area-inset-top)) + 5rem);
+  top: calc(max(1rem, env(safe-area-inset-top)) + 5.5rem);
 }
 
 .magnet,
@@ -65,9 +65,20 @@ body {
   transition: opacity var(--fade);
 }
 
-.magnet[aria-pressed='false'] {
+.magnet {
+  line-height: 1;
+}
+
+/* Straight, Triplet or Off, in words under the name. */
+.magnet-state {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+.magnet[data-state='off'] {
   opacity: 0.35;
-  text-decoration: line-through;
 }
 
 /* Shared by every global control that can be unavailable. */

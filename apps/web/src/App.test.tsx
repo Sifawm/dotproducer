@@ -1,5 +1,5 @@
 import type { Sound } from '@dotproducer/model';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
@@ -190,6 +190,16 @@ describe('playing', () => {
 
 describe('Magnet', () => {
   const nearRing3 = { x: 700, y: 440 };
+  // Near 8 o'clock on Ring 3, a little off the last third of the beat.
+  const nearEightOClock = { x: 445, y: 845 };
+  const magnetButton = () => screen.getByRole('button', { name: /^Magnet, / });
+  const tapMagnet = () => user.click(magnetButton());
+  /** What the browser does on Back: the address changes, then popstate fires. */
+  const back = (hash: string): void =>
+    act(() => {
+      window.history.replaceState(null, '', hash === '' ? '/' : hash);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
 
   it('snaps drops to the Rings by default', () => {
     open();
@@ -197,20 +207,103 @@ describe('Magnet', () => {
     expect(scene.state?.pattern.voices[0]?.distance).toBe(3);
   });
 
-  it('allows Free placement when turned off, without moving what is already placed', async () => {
+  it('steps through Straight, Triplet and Off, showing and announcing each state', async () => {
     open();
-    await user.click(screen.getByRole('button', { name: 'Magnet' }));
-    expect(scene.state?.magnet).toBe(false);
+    expect(magnetButton().getAttribute('aria-label')).toBe('Magnet, Straight');
+    expect(within(magnetButton()).getByText('Straight')).toBeTruthy();
+    await tapMagnet();
+    expect(magnetButton().getAttribute('aria-label')).toBe('Magnet, Triplet');
+    expect(within(magnetButton()).getByText('Triplet')).toBeTruthy();
+    expect(status()).toBe('Magnet Triplet');
+    expect(scene.state).toMatchObject({ magnet: true, pattern: { magnetMode: 'triplet' } });
+    await tapMagnet();
+    expect(magnetButton().getAttribute('aria-label')).toBe('Magnet, Off');
+    expect(status()).toBe('Magnet Off');
+    expect(scene.state).toMatchObject({ magnet: false, pattern: { magnetMode: 'triplet' } });
+    await tapMagnet();
+    expect(magnetButton().getAttribute('aria-label')).toBe('Magnet, Straight');
+    expect(status()).toBe('Magnet Straight');
+    expect(scene.state).toMatchObject({ magnet: true, pattern: { magnetMode: 'straight' } });
+  });
+
+  it('records Straight and Triplet in the URL as steps of history, but not Off', async () => {
+    open('#v1~120~k3_0');
+    const before = window.history.length;
+    await tapMagnet();
+    expect(window.location.hash).toBe('#v2~120d12~k3_0');
+    expect(window.history.length).toBe(before + 1);
+    await tapMagnet();
+    expect(window.location.hash).toBe('#v2~120d12~k3_0');
+    expect(window.history.length).toBe(before + 1);
+    await tapMagnet();
+    expect(window.location.hash).toBe('#v1~120~k3_0');
+    expect(window.history.length).toBe(before + 2);
+  });
+
+  it('restores Straight or Triplet on Back, never turning the Magnet on or off', async () => {
+    open('#v1~120~k3_0');
+    await tapMagnet();
+    back('#v1~120~k3_0');
+    expect(magnetButton().getAttribute('aria-label')).toBe('Magnet, Straight');
+
+    await tapMagnet();
+    await tapMagnet();
+    back('#v1~120~k3_0');
+    expect(magnetButton().getAttribute('aria-label')).toBe('Magnet, Off');
+    expect(scene.state?.pattern.magnetMode).toBe('straight');
+    // Turning on from Off on a Straight Pattern changes nothing in it.
+    const before = window.history.length;
+    await tapMagnet();
+    expect(magnetButton().getAttribute('aria-label')).toBe('Magnet, Straight');
+    expect(window.history.length).toBe(before);
+  });
+
+  it('opens a shared Triplet link in Triplet, and keeps it on Clear', async () => {
+    open('#v2~96d12~k3_0');
+    expect(magnetButton().getAttribute('aria-label')).toBe('Magnet, Triplet');
+    await user.click(clearButton());
+    expect(window.location.hash).toBe('#v2~96d12');
+  });
+
+  it('snaps a drop to the last third of the beat in Triplet, for a shuffle', () => {
+    open('#v2~120d12');
+    drop('kick');
+    drop('snare', nearEightOClock);
+    expect(scene.state?.pattern.voices[1]).toMatchObject({ distance: 3, angle: 8 / 12 });
+    wait(2);
+    const [kick = 0, nextKick = 0] = playedTimes('kick').slice(-2);
+    const snare = playedTimes('snare').find((time) => time > kick && time < nextKick);
+    // Ring 3 is one beat: half a second at 120 BPM.
+    expect((snare ?? 0) - kick).toBeCloseTo(1 / 3);
+  });
+
+  it('never moves a placed Voice when its state changes', async () => {
+    open();
+    await tapMagnet();
+    await tapMagnet();
     drop('kick', nearRing3);
     expect(scene.state?.pattern.voices[0]?.distance).toBeCloseTo(2.6);
-    await user.click(screen.getByRole('button', { name: 'Magnet' }));
+    await tapMagnet();
+    await tapMagnet();
     expect(scene.state?.pattern.voices[0]?.distance).toBeCloseTo(2.6);
   });
 
-  it('is inverted for one drag while Alt is held', () => {
+  it('places freely while Alt is held with the Magnet on', async () => {
     open();
     drop('kick', nearRing3, true);
     expect(scene.state?.pattern.voices[0]?.distance).toBeCloseTo(2.6);
+    await tapMagnet();
+    drop('snare', nearEightOClock, true);
+    expect(scene.state?.pattern.voices[1]?.angle).not.toBe(8 / 12);
+  });
+
+  it('snaps to the Divisions the Pattern keeps while Alt is held with the Magnet off', async () => {
+    open('#v2~120d12');
+    await tapMagnet();
+    drop('snare', nearEightOClock);
+    expect(scene.state?.pattern.voices[0]?.angle).not.toBe(8 / 12);
+    drop('snare', nearEightOClock, true);
+    expect(scene.state?.pattern.voices[1]).toMatchObject({ distance: 3, angle: 8 / 12 });
   });
 });
 
@@ -370,8 +463,45 @@ describe('keyboard', () => {
       'Kick, Ring 3, on the beat',
       'Play',
       'Tempo',
-      'Magnet',
+      'Magnet, Straight',
     ]);
+  });
+
+  it('steps the focused Voice by twelfths in Triplet, also while the Magnet is off', async () => {
+    open('#v2~120d12~k3_0.125');
+    act(() => screen.getByRole('button', { name: 'Kick, Ring 3, 1/8 past the beat' }).focus());
+    // Off the grid of the Pattern: onto the nearest twelfth first, then one step.
+    await user.keyboard('{ArrowRight}');
+    expect(status()).toBe('Kick moved to Ring 3, 1/4 past the beat');
+    await user.click(screen.getByRole('button', { name: 'Magnet, Triplet' }));
+    act(() => screen.getByRole('button', { name: 'Kick, Ring 3, 1/4 past the beat' }).focus());
+    await user.keyboard('{ArrowLeft}{ArrowLeft}');
+    expect(status()).toBe('Kick moved to Ring 3, 1/12 past the beat');
+  });
+
+  it('adds new Voices on the twelfths in Triplet', async () => {
+    open('#v2~120d12');
+    await user.click(screen.getByRole('button', { name: 'Add Snare' }));
+    await user.click(screen.getByRole('button', { name: 'Add Snare' }));
+    expect(voiceButtons().map((button) => button.textContent)).toEqual([
+      'Snare, Ring 3, on the beat',
+      'Snare, Ring 3, 1/12 past the beat',
+    ]);
+  });
+
+  it('names thirds and twelfths as fractions in either state, and the rest as a percentage', () => {
+    const names = [
+      'Kick, Ring 3, 1/3 past the beat',
+      'Snare, Ring 3, 5/12 past the beat',
+      'Clap, Ring 3, 1/6 past the beat',
+      'Closed Hat, Ring 3, 30% past the beat',
+    ];
+    const voices = '~k3_0.3333333333333333~s3_0.4166666666666667~c3_0.16666666666666666~h3_0.3';
+    open(`#v2~120d12${voices}`);
+    expect(voiceButtons().map((button) => button.textContent)).toEqual(names);
+    cleanup();
+    open(`#v1~120${voices}`);
+    expect(voiceButtons().map((button) => button.textContent)).toEqual(names);
   });
 
   it('pauses and resumes from the Core', async () => {

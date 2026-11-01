@@ -10,6 +10,7 @@ import {
   place,
   removeVoice,
   ringDistance,
+  setMagnetMode,
   setTempo,
   soloVoice,
   toggleMuted,
@@ -30,23 +31,37 @@ const only = (pattern: Pattern) => {
 };
 
 describe('placement', () => {
-  it('snaps to the nearer Ring and angular division when the Magnet is on', () => {
-    expect(place(at(2.4, 0.49), true)).toEqual(at(2, 0.5));
-    expect(place(at(2.6, 0.07), true)).toEqual(at(3, 0.125));
+  it('snaps to the nearer Ring and of the 8 Divisions in Straight', () => {
+    expect(place(at(2.4, 0.49), 'straight')).toEqual(at(2, 0.5));
+    expect(place(at(2.6, 0.07), 'straight')).toEqual(at(3, 0.125));
   });
 
   it('snaps an angle just before 12 o\'clock back to 12 o\'clock', () => {
-    expect(place(at(1, 0.99), true)).toEqual(at(1, 0));
+    expect(place(at(1, 0.99), 'straight')).toEqual(at(1, 0));
   });
 
-  it('keeps distance and angle as given when the Magnet is off', () => {
-    expect(place(at(2.4, 0.49), false)).toEqual(at(2.4, 0.49));
+  it('snaps to the nearer Ring and of the 12 Divisions in Triplet', () => {
+    expect(place(at(2.6, 0.65), 'triplet')).toEqual(at(3, 2 / 3));
+    expect(place(at(3.1, 0.3), 'triplet')).toEqual(at(3, 1 / 3));
+    expect(place(at(1.4, 0.07), 'triplet')).toEqual(at(1, 1 / 12));
+  });
+
+  it('lands exactly on the third, so the angle is written in a link as 2/3 is', () => {
+    expect(place(at(3, 0.65), 'triplet').angle).toBe(2 / 3);
+  });
+
+  it('snaps an angle just before 12 o\'clock back to 12 o\'clock in Triplet', () => {
+    expect(place(at(1, 0.97), 'triplet')).toEqual(at(1, 0));
+  });
+
+  it('keeps distance and angle as given with nothing to snap to', () => {
+    expect(place(at(2.4, 0.49), null)).toEqual(at(2.4, 0.49));
   });
 
   it('settles drops inside the first Ring or beyond the last one onto them', () => {
-    expect(place(at(0.2, 0.3), false).distance).toBe(1);
-    expect(place(at(9, 0.3), false).distance).toBe(5);
-    expect(place(at(9, 0.3), true).distance).toBe(5);
+    expect(place(at(0.2, 0.3), null).distance).toBe(1);
+    expect(place(at(9, 0.3), null).distance).toBe(5);
+    expect(place(at(9, 0.3), 'straight').distance).toBe(5);
   });
 
   it('always yields a distance within range', () => {
@@ -54,7 +69,7 @@ describe('placement', () => {
       fc.property(
         fc.double({ noNaN: true }),
         fc.double({ noNaN: true }),
-        fc.boolean(),
+        fc.constantFrom('straight' as const, 'triplet' as const, null),
         (distance, turns, magnet) => {
           const placed = place(at(distance, turns), magnet);
           expect(placed.distance).toBeGreaterThanOrEqual(1);
@@ -69,47 +84,54 @@ describe('placement', () => {
 
 describe('Pattern operations', () => {
   it('starts empty at 120 BPM', () => {
-    expect(emptyPattern).toEqual({ tempo: 120, voices: [] });
+    expect(emptyPattern).toEqual({ tempo: 120, magnetMode: 'straight', voices: [] });
+  });
+
+  it('switches between Straight and Triplet without moving any Voice', () => {
+    const start = addVoice(emptyPattern, 'kick', at(2, 0.125), 'straight');
+    const triplet = setMagnetMode(start, 'triplet');
+    expect(triplet).toEqual({ ...start, magnetMode: 'triplet' });
+    expect(setMagnetMode(triplet, 'straight')).toEqual(start);
   });
 
   it('adds a Voice with its Sound at the placed position, not Muted', () => {
-    const voice = only(addVoice(emptyPattern, 'kick', at(2.9, 0.26), true));
+    const voice = only(addVoice(emptyPattern, 'kick', at(2.9, 0.26), 'straight'));
     expect(voice).toMatchObject({ sound: 'kick', distance: 3, angle: 0.25, muted: false });
   });
 
   it('gives every Voice its own identity', () => {
-    const pattern = addVoice(addVoice(emptyPattern, 'kick', at(1, 0), true), 'kick', at(2, 0), true);
+    const pattern = addVoice(addVoice(emptyPattern, 'kick', at(1, 0), 'straight'), 'kick', at(2, 0), 'straight');
     const ids = pattern.voices.map((voice) => voice.id);
     expect(new Set(ids).size).toBe(2);
   });
 
   it('never changes the Pattern it was given', () => {
-    const before = addVoice(emptyPattern, 'kick', at(1, 0), true);
+    const before = addVoice(emptyPattern, 'kick', at(1, 0), 'straight');
     const snapshot = structuredClone(before);
-    addVoice(before, 'snare', at(2, 0), true);
+    addVoice(before, 'snare', at(2, 0), 'straight');
     toggleMuted(before, only(before).id);
     expect(before).toEqual(snapshot);
   });
 
   it('moves a Voice, keeping its identity, Sound and Muted state', () => {
-    const start = addVoice(emptyPattern, 'tom', at(1, 0), true);
+    const start = addVoice(emptyPattern, 'tom', at(1, 0), 'straight');
     const id = only(start).id;
-    const moved = only(moveVoice(toggleMuted(start, id), id, at(4.2, 0.6), true));
+    const moved = only(moveVoice(toggleMuted(start, id), id, at(4.2, 0.6), 'straight'));
     expect(moved).toEqual({ id, sound: 'tom', distance: 4, angle: 0.625, muted: true });
   });
 
   it('removes a Voice', () => {
-    const start = addVoice(emptyPattern, 'clap', at(1, 0), true);
+    const start = addVoice(emptyPattern, 'clap', at(1, 0), 'straight');
     expect(removeVoice(start, only(start).id).voices).toEqual([]);
   });
 
-  it('clears every Voice and keeps the Tempo', () => {
-    const start = setTempo(addVoice(emptyPattern, 'clap', at(1, 0), true), 90);
-    expect(clearVoices(start)).toEqual({ tempo: 90, voices: [] });
+  it('clears every Voice and keeps the Tempo and Triplet', () => {
+    const start = setMagnetMode(setTempo(addVoice(emptyPattern, 'clap', at(1, 0), 'straight'), 90), 'triplet');
+    expect(clearVoices(start)).toEqual({ tempo: 90, magnetMode: 'triplet', voices: [] });
   });
 
   it('toggles Muted back and forth', () => {
-    const start = addVoice(emptyPattern, 'clap', at(1, 0), true);
+    const start = addVoice(emptyPattern, 'clap', at(1, 0), 'straight');
     const id = only(start).id;
     expect(only(toggleMuted(start, id)).muted).toBe(true);
     expect(only(toggleMuted(toggleMuted(start, id), id)).muted).toBe(false);
@@ -124,7 +146,7 @@ describe('Pattern operations', () => {
 
 describe('solo', () => {
   const three = (['kick', 'snare', 'tom'] as const).reduce(
-    (pattern, sound, index) => addVoice(pattern, sound, at(index + 1, 0), true),
+    (pattern, sound, index) => addVoice(pattern, sound, at(index + 1, 0), 'straight'),
     emptyPattern,
   );
   const snareId = three.voices[1]?.id;
@@ -145,25 +167,25 @@ describe('solo', () => {
 });
 
 describe('merging', () => {
-  const kick = addVoice(emptyPattern, 'kick', at(2, 0.5), true);
+  const kick = addVoice(emptyPattern, 'kick', at(2, 0.5), 'straight');
 
   it('merges a Voice added onto one of the same Sound at the same position', () => {
-    expect(addVoice(kick, 'kick', at(2.1, 0.52), true)).toEqual(kick);
+    expect(addVoice(kick, 'kick', at(2.1, 0.52), 'straight')).toEqual(kick);
   });
 
   it('keeps Voices of different Sounds at the same position', () => {
-    expect(addVoice(kick, 'snare', at(2, 0.5), true).voices).toHaveLength(2);
+    expect(addVoice(kick, 'snare', at(2, 0.5), 'straight').voices).toHaveLength(2);
   });
 
   it('merges a Voice moved onto one of the same Sound at the same position', () => {
-    const two = addVoice(kick, 'kick', at(4, 0), true);
+    const two = addVoice(kick, 'kick', at(4, 0), 'straight');
     const movedId = two.voices[1]?.id;
     if (movedId === undefined) throw new Error('no voice');
-    expect(moveVoice(two, movedId, at(2, 0.5), true)).toEqual(kick);
+    expect(moveVoice(two, movedId, at(2, 0.5), 'straight')).toEqual(kick);
   });
 
   it('does not merge a Voice with itself when it is dropped where it was', () => {
-    expect(moveVoice(kick, only(kick).id, at(2, 0.5), true)).toEqual(kick);
+    expect(moveVoice(kick, only(kick).id, at(2, 0.5), 'straight')).toEqual(kick);
   });
 });
 
@@ -171,12 +193,21 @@ describe('default keyboard position', () => {
   it('is on the Magnet grid and free for that Sound', () => {
     let pattern = emptyPattern;
     for (let count = 1; count <= 40; count++) {
-      pattern = addVoice(pattern, 'kick', vacantPosition(pattern, 'kick'), true);
+      pattern = addVoice(pattern, 'kick', vacantPosition(pattern, 'kick'), 'straight');
       expect(pattern.voices).toHaveLength(count);
     }
   });
 
   it('starts on Ring 3, on the beat', () => {
     expect(vacantPosition(emptyPattern, 'kick')).toEqual(at(3, 0));
+  });
+
+  it('steps through the 12 Divisions in Triplet', () => {
+    let pattern = setMagnetMode(emptyPattern, 'triplet');
+    for (let count = 1; count <= 60; count++) {
+      pattern = addVoice(pattern, 'kick', vacantPosition(pattern, 'kick'), 'triplet');
+      expect(pattern.voices).toHaveLength(count);
+    }
+    expect(pattern.voices[1]).toMatchObject(at(3, 1 / 12));
   });
 });

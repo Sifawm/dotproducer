@@ -8,6 +8,7 @@ import {
   emptyPattern,
   encodePattern,
   ringDistance,
+  setMagnetMode,
   setTempo,
   toggleMuted,
   type Pattern,
@@ -19,7 +20,7 @@ const at = (distance: number, turns: number) => ({
 });
 
 const example = ((): Pattern => {
-  const voices = addVoice(addVoice(emptyPattern, 'kick', at(3, 0), true), 'snare', at(3, 0.5), true);
+  const voices = addVoice(addVoice(emptyPattern, 'kick', at(3, 0), 'straight'), 'snare', at(3, 0.5), 'straight');
   const snare = voices.voices[1];
   if (!snare) throw new Error('no voice');
   return setTempo(toggleMuted(voices, snare.id), 96);
@@ -28,23 +29,27 @@ const example = ((): Pattern => {
 const patterns = fc
   .record({
     bpm: fc.integer({ min: 60, max: 180 }),
+    magnetMode: fc.constantFrom('straight' as const, 'triplet' as const),
     voices: fc.array(
       fc.record({
         sound: fc.constantFrom(...SOUNDS),
         distance: fc.double({ min: 1, max: 5, noNaN: true }),
         turns: fc.double({ min: 0, max: 0.999, noNaN: true }),
-        magnet: fc.boolean(),
+        snap: fc.constantFrom('straight' as const, 'triplet' as const, null),
         muted: fc.boolean(),
       }),
       { maxLength: 12 },
     ),
   })
-  .map(({ bpm, voices }) =>
-    voices.reduce((pattern, { sound, distance, turns, magnet, muted }) => {
-      const added = addVoice(pattern, sound, at(distance, turns), magnet);
-      const voice = added.voices[added.voices.length - 1];
-      return muted && voice && added !== pattern ? toggleMuted(added, voice.id) : added;
-    }, setTempo(emptyPattern, bpm)),
+  .map(({ bpm, magnetMode, voices }) =>
+    voices.reduce(
+      (pattern, { sound, distance, turns, snap, muted }) => {
+        const added = addVoice(pattern, sound, at(distance, turns), snap);
+        const voice = added.voices[added.voices.length - 1];
+        return muted && voice && added !== pattern ? toggleMuted(added, voice.id) : added;
+      },
+      setMagnetMode(setTempo(emptyPattern, bpm), magnetMode),
+    ),
   );
 
 describe('URL codec', () => {
@@ -56,6 +61,32 @@ describe('URL codec', () => {
     expect(decodePattern('v1~96~k3_0~S3_0.5')).toEqual(example);
   });
 
+  it('keeps encoding a Straight Pattern as v1, and decodes it as Straight', () => {
+    expect(decodePattern('v1~96~k3_0~S3_0.5').magnetMode).toBe('straight');
+  });
+
+  it('encodes Triplet in the v2 header, after the Tempo', () => {
+    const triplet = setMagnetMode(example, 'triplet');
+    expect(encodePattern(triplet)).toBe('v2~96d12~k3_0~S3_0.5');
+    expect(decodePattern('v2~96d12~k3_0~S3_0.5')).toEqual(triplet);
+  });
+
+  it('reads Straight from a v2 link without d12, ignoring unknown header fields', () => {
+    expect(decodePattern('v2~96~k3_0')).toEqual(decodePattern('v1~96~k3_0'));
+    expect(decodePattern('v2~96d8~k3_0')).toEqual(decodePattern('v1~96~k3_0'));
+    expect(decodePattern('v2~96x5~k3_0')).toEqual(decodePattern('v1~96~k3_0'));
+    expect(decodePattern('v2~96x5d12q~k3_0')).toEqual(
+      setMagnetMode(decodePattern('v1~96~k3_0'), 'triplet'),
+    );
+  });
+
+  it('survives a truncated v2 header', () => {
+    expect(decodePattern('v2')).toEqual(emptyPattern);
+    expect(decodePattern('v2~96d')).toEqual(setTempo(emptyPattern, 96));
+    expect(decodePattern('v2~96d1')).toEqual(setTempo(emptyPattern, 96));
+    expect(decodePattern('v2~d12')).toEqual(setMagnetMode(emptyPattern, 'triplet'));
+  });
+
   it('round-trips any Pattern exactly, Free placement included', () => {
     fc.assert(
       fc.property(patterns, (pattern) => {
@@ -65,7 +96,7 @@ describe('URL codec', () => {
   });
 
   it('yields an empty Pattern for unreadable input', () => {
-    for (const text of ['', 'garbage', '~~~', 'v1', 'v2~120~k3_0', '%E0%A4%A', 'v1~~']) {
+    for (const text of ['', 'garbage', '~~~', 'v1', 'v3~120~k3_0', '%E0%A4%A', 'v1~~']) {
       expect(decodePattern(text)).toEqual(emptyPattern);
     }
   });
@@ -102,6 +133,7 @@ describe('URL codec', () => {
       fc.property(fc.string(), (text) => {
         expect(() => decodePattern(text)).not.toThrow();
         expect(() => decodePattern(`v1~120~${text}`)).not.toThrow();
+        expect(() => decodePattern(`v2~${text}`)).not.toThrow();
       }),
     );
   });

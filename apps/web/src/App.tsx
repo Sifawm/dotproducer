@@ -15,12 +15,14 @@ import {
   retimeTimeline,
   seconds,
   secondsAt,
+  setMagnetMode,
   setTempo,
   soloVoice,
   startTimeline,
   toggleMuted,
   vacantPosition,
   type AudioFormat,
+  type MagnetMode,
   type Pattern,
   type Position,
   type Sound,
@@ -33,6 +35,7 @@ import {
   ExportControl,
   Hint,
   KeyboardMirror,
+  MAGNET_NAMES,
   MagnetControl,
   SOUND_NAMES,
   TempoControl,
@@ -68,6 +71,7 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
   const host = useRef<HTMLDivElement>(null);
   const scheduledUntil = useRef(beats(0));
   const [pattern, setPattern] = useState(patternInUrl);
+  /** Whether the Magnet is on; Straight or Triplet lives in the Pattern. */
   const [magnet, setMagnet] = useState(true);
   /** Null until playback has started for the first time. */
   const [timeline, setTimeline] = useState<Timeline | null>(null);
@@ -116,8 +120,27 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
     setAnnouncement(playing ? 'Paused' : 'Playing');
   };
 
-  const add = (sound: Sound, position: Position, magnetOn: boolean): void => {
-    const next = addVoice(pattern, sound, position, magnetOn);
+  /** What a drop snaps to: the Pattern's mode when the Magnet is on, inverted by Alt. */
+  const snapFor = (invertMagnet: boolean): MagnetMode | null =>
+    magnet !== invertMagnet ? pattern.magnetMode : null;
+
+  /** Straight → Triplet → off → Straight; only Straight and Triplet touch the Pattern. */
+  const stepMagnet = (): void => {
+    if (magnet && pattern.magnetMode === 'straight') {
+      commit(setMagnetMode(pattern, 'triplet'));
+      setAnnouncement(`Magnet ${MAGNET_NAMES.triplet}`);
+    } else if (magnet) {
+      setMagnet(false);
+      setAnnouncement(`Magnet ${MAGNET_NAMES.off}`);
+    } else {
+      setMagnet(true);
+      commit(setMagnetMode(pattern, 'straight'));
+      setAnnouncement(`Magnet ${MAGNET_NAMES.straight}`);
+    }
+  };
+
+  const add = (sound: Sound, position: Position, snap: MagnetMode | null): void => {
+    const next = addVoice(pattern, sound, position, snap);
     const added = next.voices[next.voices.length - 1];
     if (next !== pattern && added) {
       setAnnouncement(`${SOUND_NAMES[sound]} added, ${describePosition(added)}`);
@@ -127,8 +150,8 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
     start();
   };
 
-  const move = (id: VoiceId, position: Position, magnetOn: boolean): void => {
-    const next = moveVoice(pattern, id, position, magnetOn);
+  const move = (id: VoiceId, position: Position, snap: MagnetMode | null): void => {
+    const next = moveVoice(pattern, id, position, snap);
     const before = pattern.voices.find((voice) => voice.id === id);
     const after = next.voices.find((voice) => voice.id === id);
     if (before) {
@@ -200,14 +223,14 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
         add(
           intent.sound,
           pointToPosition(intent.point, intent.canvas),
-          magnet !== intent.invertMagnet,
+          snapFor(intent.invertMagnet),
         );
         break;
       case 'voiceDropped':
         move(
           intent.voiceId,
           pointToPosition(intent.point, intent.canvas),
-          magnet !== intent.invertMagnet,
+          snapFor(intent.invertMagnet),
         );
         break;
       case 'voiceDroppedOnDock':
@@ -286,8 +309,8 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
         pattern={pattern}
         playing={playing}
         announcement={announcement}
-        onAddVoice={(sound) => add(sound, vacantPosition(pattern, sound), true)}
-        onMoveVoice={(id, position) => move(id, position, true)}
+        onAddVoice={(sound) => add(sound, vacantPosition(pattern, sound), pattern.magnetMode)}
+        onMoveVoice={(id, position) => move(id, position, pattern.magnetMode)}
         onToggleMuted={mute}
         onSoloVoice={(id) => solo(id, pattern)}
         onRemoveVoice={remove}
@@ -299,7 +322,7 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
         onChange={(tempo) => show(setTempo(pattern, tempo))}
         onCommit={(tempo) => commit(setTempo(pattern, tempo))}
       />
-      <MagnetControl on={magnet} onToggle={() => setMagnet(!magnet)} />
+      <MagnetControl state={magnet ? pattern.magnetMode : 'off'} onStep={stepMagnet} />
       <ClearControl disabled={empty} onClear={clear} />
       <ExportControl disabled={empty} onExport={download} />
       <Hint visible={empty && !hintDismissed} />

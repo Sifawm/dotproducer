@@ -1,12 +1,29 @@
+import type { MagnetMode } from '@dotproducer/model';
 import type { ReactElement } from 'react';
 
+export type MagnetShown = MagnetMode | 'off';
+
 export interface MagnetControlProps {
-  readonly on: boolean;
-  onToggle(): void;
+  readonly state: MagnetShown;
+  /** Straight → Triplet → off → Straight. */
+  onStep(): void;
 }
 
-export const MagnetControl = ({ on, onToggle }: MagnetControlProps): ReactElement => (
-  <button className="magnet" type="button" aria-pressed={on} onClick={onToggle}>
+export const MAGNET_NAMES: Readonly<Record<MagnetShown, string>> = {
+  straight: 'Straight',
+  triplet: 'Triplet',
+  off: 'Off',
+};
+
+export const MagnetControl = ({ state, onStep }: MagnetControlProps): ReactElement => (
+  <button
+    className="magnet"
+    type="button"
+    data-state={state}
+    aria-label={`Magnet, ${MAGNET_NAMES[state]}`}
+    onClick={onStep}
+  >
     Magnet
+    <span className="magnet-state">{MAGNET_NAMES[state]}</span>
   </button>
 );
