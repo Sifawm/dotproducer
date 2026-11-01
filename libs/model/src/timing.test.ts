@@ -20,6 +20,7 @@ import {
   secondsAt,
   startTimeline,
   SOUNDS,
+  tappedTempo,
   tempo,
   toggleMuted,
   type Pattern,
@@ -289,5 +290,35 @@ describe('exported hits', () => {
         for (const each of exported) expect(each).toEqual(preRoll);
       }),
     );
+  });
+});
+
+describe('tap tempo', () => {
+  /** Tap times in seconds, the given number of seconds apart. */
+  const taps = (count: number, apart: number, from = 3) =>
+    Array.from({ length: count }, (_, index) => seconds(from + index * apart));
+
+  it('gives nothing for fewer than four taps', () => {
+    for (let count = 0; count < 4; count++) expect(tappedTempo(taps(count, 0.5))).toBeNull();
+  });
+
+  it('gives the rate of four evenly spaced taps', () => {
+    expect(tappedTempo(taps(4, 0.5))).toBe(120);
+    expect(tappedTempo(taps(4, 0.75))).toBe(80);
+  });
+
+  it('counts only the latest three intervals', () => {
+    // A slow start, then three intervals of 0.4 s: 150 BPM.
+    expect(tappedTempo([seconds(0), seconds(1.5), ...taps(4, 0.4, 2)])).toBe(150);
+  });
+
+  it('rounds to a whole BPM', () => {
+    // Intervals of 0.49 s are 122.45 BPM.
+    expect(tappedTempo(taps(4, 0.49))).toBe(122);
+  });
+
+  it('gives 180 for taps faster than that and 60 for slower ones', () => {
+    expect(tappedTempo(taps(4, 0.1))).toBe(180);
+    expect(tappedTempo(taps(4, 1.9))).toBe(60);
   });
 });

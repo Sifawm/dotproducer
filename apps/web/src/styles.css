@@ -33,6 +33,13 @@ body {
   line-height: 1;
   cursor: ns-resize;
   touch-action: none;
+  transition: opacity var(--fade);
+}
+
+/* Each tap dims the number at once and lets it fade back. Opacity only, so it stays under reduced motion. */
+.tempo[data-flash] {
+  opacity: 0.4;
+  transition: none;
 }
 
 .clear,
