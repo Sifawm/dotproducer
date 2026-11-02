@@ -2,6 +2,7 @@ import type { AudioEngine } from '@dotproducer/audio';
 import {
   addVoice,
   beats,
+  EXAMPLES,
   clearVoices,
   decodePattern,
   encodePattern,
@@ -22,6 +23,7 @@ import {
   toggleMuted,
   vacantPosition,
   type AudioFormat,
+  type Example,
   type MagnetMode,
   type Pattern,
   type Position,
@@ -77,6 +79,7 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
   const [timeline, setTimeline] = useState<Timeline | null>(null);
   const [focusedVoiceId, setFocusedVoiceId] = useState<VoiceId | null>(null);
   const [hintDismissed, setHintDismissed] = useState(false);
+  const [draggingFromDock, setDraggingFromDock] = useState(false);
   const [announcement, setAnnouncement] = useState('');
   const playing = timeline?.running ?? false;
   const empty = pattern.voices.length === 0;
@@ -98,11 +101,12 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
     }
   };
 
-  const start = (): void => {
+  /** Starts playback the first time; after that, leaves it running or paused. */
+  const start = (tempo = pattern.tempo): void => {
     audio.unlock();
     if (timeline) return;
     scheduledUntil.current = beats(0);
-    setTimeline(startTimeline(pattern.tempo, seconds(audio.now() + START_DELAY_SECONDS)));
+    setTimeline(startTimeline(tempo, seconds(audio.now() + START_DELAY_SECONDS)));
   };
 
   const toggleTransport = (): void => {
@@ -196,6 +200,21 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
     commit(clearVoices(pattern));
   };
 
+  /** Loads an Example as one step of history and makes sure it is heard. */
+  const chooseExample = ({ name, encoded }: Example): void => {
+    const next = decodePattern(encoded);
+    // A running timeline is retimed by commit; a paused one is resumed at the new Tempo.
+    commit(next);
+    if (timeline && !timeline.running) {
+      audio.unlock();
+      const now = audio.now();
+      setTimeline(resumeTimeline(retimeTimeline(timeline, next.tempo, now), now));
+    } else {
+      start(next.tempo);
+    }
+    setAnnouncement(`${name.charAt(0).toUpperCase()}${name.slice(1)} example loaded, playing`);
+  };
+
   /** Renders the current Pattern and hands it to the browser as a download. */
   const download = async (format: AudioFormat): Promise<void> => {
     const file = await audio.render(pattern, format);
@@ -216,10 +235,13 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
         break;
       case 'dragStarted':
         setHintDismissed(true);
+        setDraggingFromDock(intent.voiceId === null);
         break;
       case 'dragCancelled':
+        setDraggingFromDock(false);
         break;
       case 'soundDropped':
+        setDraggingFromDock(false);
         add(
           intent.sound,
           pointToPosition(intent.point, intent.canvas),
@@ -325,7 +347,12 @@ export const App = ({ audio, scene }: AppProps): ReactElement => {
       <MagnetControl state={magnet ? pattern.magnetMode : 'off'} onStep={stepMagnet} />
       <ClearControl disabled={empty} onClear={clear} />
       <ExportControl disabled={empty} onExport={download} />
-      <Hint visible={empty && !hintDismissed} />
+      <Hint
+        gestureVisible={empty && !hintDismissed}
+        examplesVisible={empty && !draggingFromDock}
+        examples={EXAMPLES}
+        onChoose={chooseExample}
+      />
     </main>
   );
 };
