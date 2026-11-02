@@ -1,6 +1,6 @@
 export { ClearControl, type ClearControlProps } from './ClearControl';
 export { ExportControl, type ExportControlProps } from './ExportControl';
-export { Hint } from './Hint';
+export { Hint, type HintProps } from './Hint';
 export { KeyboardMirror, type KeyboardMirrorProps } from './KeyboardMirror';
 export {
   MAGNET_NAMES,

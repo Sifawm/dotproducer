@@ -48,6 +48,13 @@ const voiceButtons = () =>
 const status = () => screen.getByRole('status').textContent;
 const clearButton = () => screen.getByRole<HTMLButtonElement>('button', { name: 'Clear' });
 const hint = () => screen.queryByText('Drag a dot onto the canvas', { ignore: '[aria-hidden="true"]' });
+const exampleLink = (name: string) => screen.queryByRole<HTMLAnchorElement>('link', { name });
+/** What the browser does on Back or Forward: the address changes, then popstate fires. */
+const back = (hash: string): void =>
+  act(() => {
+    window.history.replaceState(null, '', hash === '' ? '/' : hash);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
 
 beforeEach(() => {
   // Only the timers and the date the application runs on; Testing Library needs a real setTimeout.
@@ -88,6 +95,151 @@ describe('first visit', () => {
     wait(2);
     expect(audio.unlocked).toBe(false);
     expect(audio.played).toEqual([]);
+  });
+});
+
+describe('Examples', () => {
+  const techno = 'v1~128~k3_0~c4_0.5~c5_0.875~o3_0.5~h3_0~h3_0.25~h3_0.75~t4_0.375';
+
+  it('offers the Examples on an empty canvas, each a link to its Pattern', () => {
+    open();
+    expect(exampleLink('techno')?.closest('p')?.textContent).toBe('Try techno · breakbeat · shuffle');
+    expect(exampleLink('techno')?.getAttribute('href')).toBe(`#${techno}`);
+    expect(exampleLink('breakbeat')?.getAttribute('href')).toBe(
+      '#v1~132~k5_0~k5_0.125~k5_0.625~s4_0.5~s4_0.875~h2_0~o5_0.375~c5_0.75~t5_0.875',
+    );
+    expect(exampleLink('shuffle')?.getAttribute('href')).toMatch(/^#v2~96d12~/);
+  });
+
+  it('steps aside while a dot is dragged from the Dock, and comes back if the drag is cancelled', () => {
+    open();
+    act(() => scene.emit({ type: 'dragStarted', voiceId: null }));
+    expect(exampleLink('techno')).toBeNull();
+    act(() => scene.emit({ type: 'dragCancelled' }));
+    expect(exampleLink('techno')).not.toBeNull();
+  });
+
+  it('comes back without the gesture line after Clear and after the last Voice is removed', async () => {
+    open();
+    drop('kick');
+    expect(exampleLink('techno')).toBeNull();
+    await user.click(clearButton());
+    expect(exampleLink('techno')).not.toBeNull();
+    expect(hint()).toBeNull();
+    drop('kick');
+    act(() => scene.emit({ type: 'dragStarted', voiceId: firstVoiceId() }));
+    act(() => scene.emit({ type: 'voiceDroppedOnDock', voiceId: firstVoiceId() }));
+    expect(exampleLink('techno')).not.toBeNull();
+  });
+
+  it('is not offered on a link that has Voices', () => {
+    open('#v1~96~k3_0');
+    expect(exampleLink('techno')).toBeNull();
+  });
+
+  const choose = async (name: string): Promise<void> => {
+    const link = exampleLink(name);
+    if (!link) throw new Error(`no ${name} Example offered`);
+    await user.click(link);
+  };
+
+  it('fills the canvas with the chosen Example, at its Tempo, and plays it at once', async () => {
+    open();
+    await choose('techno');
+    expect(scene.state?.pattern.voices.map((voice) => voice.sound)).toEqual([
+      'kick',
+      'clap',
+      'clap',
+      'openHat',
+      'closedHat',
+      'closedHat',
+      'closedHat',
+      'tom',
+    ]);
+    expect(screen.getByRole('spinbutton', { name: 'Tempo' }).textContent).toBe('128');
+    expect(status()).toBe('Techno example loaded, playing');
+    expect(exampleLink('techno')).toBeNull();
+    expect(audio.unlocked).toBe(true);
+    wait(2);
+    expect(new Set(audio.played.map((hit) => hit.sound))).toEqual(
+      new Set(['kick', 'clap', 'openHat', 'closedHat', 'tom']),
+    );
+    // Four on the floor at 128 BPM.
+    for (const gap of gaps(playedTimes('kick'))) expect(gap).toBeCloseTo(60 / 128);
+  });
+
+  it('brings Triplet with shuffle, and leaves the Magnet on or off as it was', async () => {
+    open();
+    const magnetButton = () => screen.getByRole('button', { name: /^Magnet, / });
+    await choose('shuffle');
+    expect(magnetButton().getAttribute('aria-label')).toBe('Magnet, Triplet');
+    await user.click(clearButton());
+    await user.click(magnetButton());
+    expect(magnetButton().getAttribute('aria-label')).toBe('Magnet, Off');
+    await choose('techno');
+    expect(magnetButton().getAttribute('aria-label')).toBe('Magnet, Off');
+    expect(scene.state?.pattern.magnetMode).toBe('straight');
+  });
+
+  it('is one step of history: Back returns to the empty canvas and Forward brings it back', async () => {
+    open('#v1~140');
+    const before = window.history.length;
+    await choose('techno');
+    expect(window.location.hash).toBe(`#${techno}`);
+    expect(window.history.length).toBe(before + 1);
+    back('#v1~140');
+    expect(voiceButtons()).toHaveLength(0);
+    expect(exampleLink('techno')).not.toBeNull();
+    back(`#${techno}`);
+    expect(voiceButtons()).toHaveLength(8);
+  });
+
+  it('starts paused playback again', async () => {
+    open();
+    drop('kick');
+    wait(1);
+    act(() => scene.emit({ type: 'coreTapped' }));
+    await user.click(clearButton());
+    const before = audio.played.length;
+    await choose('breakbeat');
+    expect(scene.state?.playing).toBe(true);
+    wait(2);
+    expect(audio.played.length).toBeGreaterThan(before);
+    // Closed Hats on every eighth at 132 BPM.
+    for (const gap of gaps(playedTimes('closedHat'))) expect(gap).toBeCloseTo(30 / 132);
+  });
+
+  it('joins running playback in the same bar, at its own Tempo', async () => {
+    open();
+    drop('kick');
+    wait(1.2);
+    await user.click(clearButton());
+    const chosenAt = audio.time;
+    await choose('techno');
+    wait(1);
+    // Playback started 0.05 s after 10 at 120 BPM; from here on it counts 128 to the minute.
+    const position = (chosenAt - 10.05) * 2;
+    const nextBeat = Math.ceil(position);
+    const [firstKick] = playedTimes('kick').filter((time) => time > chosenAt);
+    expect(firstKick).toBeCloseTo(chosenAt + ((nextBeat - position) * 60) / 128);
+  });
+
+  it('leaves the gesture line until a real drag, even after an Example is chosen and cleared', async () => {
+    open();
+    await choose('techno');
+    await user.click(clearButton());
+    expect(hint()).not.toBeNull();
+    expect(exampleLink('techno')).not.toBeNull();
+    drop('kick');
+    act(() => scene.emit({ type: 'voiceDroppedOnDock', voiceId: firstVoiceId() }));
+    expect(hint()).toBeNull();
+  });
+
+  it('can be chosen from the keyboard', async () => {
+    open();
+    exampleLink('breakbeat')?.focus();
+    await user.keyboard('{Enter}');
+    expect(status()).toBe('Breakbeat example loaded, playing');
   });
 });
 
@@ -194,13 +346,6 @@ describe('Magnet', () => {
   const nearEightOClock = { x: 445, y: 845 };
   const magnetButton = () => screen.getByRole('button', { name: /^Magnet, / });
   const tapMagnet = () => user.click(magnetButton());
-  /** What the browser does on Back: the address changes, then popstate fires. */
-  const back = (hash: string): void =>
-    act(() => {
-      window.history.replaceState(null, '', hash === '' ? '/' : hash);
-      window.dispatchEvent(new PopStateEvent('popstate'));
-    });
-
   it('snaps drops to the Rings by default', () => {
     open();
     drop('kick', nearRing3);
@@ -609,6 +754,7 @@ describe('URL', () => {
     open('#%%%not-a-pattern');
     expect(voiceButtons()).toHaveLength(0);
     expect(hint()).not.toBeNull();
+    expect(exampleLink('techno')).not.toBeNull();
     expect(screen.getByRole('spinbutton', { name: 'Tempo' }).textContent).toBe('120');
   });
 });
