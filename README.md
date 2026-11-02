@@ -12,7 +12,7 @@ https://sifawm.github.io/dotproducer/
 
 A Pattern lives in the URL hash, so any link opens with its Voices already placed. This one is the techno Example the app offers on an empty canvas, a four-on-the-floor groove at 128 BPM:
 
-[Open the techno example](https://sifawm.github.io/dotproducer/#v1~128~k3_0~c4_0.5~o3_0.5~h3_0.25~h3_0.75)
+[Open the techno example](https://sifawm.github.io/dotproducer/#v1~128~k3_0~c4_0.5~c5_0.875~o3_0.5~h3_0~h3_0.25~h3_0.75~t4_0.375)
 
 The format is `#v1~<bpm>~<voice>~…`, each Voice being `<letter><ring 1-5>_<angle in turns 0-1>` with `k` kick, `s` snare, `c` clap, `h` closed hat, `o` open hat, `t` tom. An upper-case letter is that Voice muted.
 

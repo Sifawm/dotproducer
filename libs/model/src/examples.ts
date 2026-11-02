@@ -6,8 +6,9 @@ export interface Example {
 }
 
 export const EXAMPLES: readonly Example[] = [
-  // Kick on every beat, Clap on 2 and 4, Open Hat off the beat, Closed Hats on the sixteenths around it.
-  { name: 'techno', encoded: 'v1~128~k3_0~c4_0.5~o3_0.5~h3_0.25~h3_0.75' },
+  // Kick on every beat, Clap on 2 and 4 and a pickup on the "and" of 4, Open Hat off the beat,
+  // Closed Hats on the other sixteenths, Tom on the "a" of 1 and 3.
+  { name: 'techno', encoded: 'v1~128~k3_0~c4_0.5~c5_0.875~o3_0.5~h3_0~h3_0.25~h3_0.75~t4_0.375' },
   // Kick on 1, the "and" of 1 and the "and" of 3; Snare on 2 and 4 with ghosts a sixteenth before 3 and 1;
   // Closed Hats on every eighth, Open Hat on the "and" of 2, Clap doubling 4, Tom on the "and" of 4.
   {

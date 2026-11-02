@@ -99,7 +99,7 @@ describe('first visit', () => {
 });
 
 describe('Examples', () => {
-  const techno = 'v1~128~k3_0~c4_0.5~o3_0.5~h3_0.25~h3_0.75';
+  const techno = 'v1~128~k3_0~c4_0.5~c5_0.875~o3_0.5~h3_0~h3_0.25~h3_0.75~t4_0.375';
 
   it('offers the Examples on an empty canvas, each a link to its Pattern', () => {
     open();
@@ -149,9 +149,12 @@ describe('Examples', () => {
     expect(scene.state?.pattern.voices.map((voice) => voice.sound)).toEqual([
       'kick',
       'clap',
+      'clap',
       'openHat',
       'closedHat',
       'closedHat',
+      'closedHat',
+      'tom',
     ]);
     expect(screen.getByRole('spinbutton', { name: 'Tempo' }).textContent).toBe('128');
     expect(status()).toBe('Techno example loaded, playing');
@@ -159,7 +162,7 @@ describe('Examples', () => {
     expect(audio.unlocked).toBe(true);
     wait(2);
     expect(new Set(audio.played.map((hit) => hit.sound))).toEqual(
-      new Set(['kick', 'clap', 'openHat', 'closedHat']),
+      new Set(['kick', 'clap', 'openHat', 'closedHat', 'tom']),
     );
     // Four on the floor at 128 BPM.
     for (const gap of gaps(playedTimes('kick'))) expect(gap).toBeCloseTo(60 / 128);
@@ -188,7 +191,7 @@ describe('Examples', () => {
     expect(voiceButtons()).toHaveLength(0);
     expect(exampleLink('techno')).not.toBeNull();
     back(`#${techno}`);
-    expect(voiceButtons()).toHaveLength(5);
+    expect(voiceButtons()).toHaveLength(8);
   });
 
   it('starts paused playback again', async () => {
