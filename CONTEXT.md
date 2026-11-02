@@ -8,6 +8,10 @@ A small music-making app where rhythmic patterns emerge from placing dots around
 The complete set of Voices around the Core together with the Tempo and whether the Magnet is Straight or Triplet; it is what gets preserved and shared. The same Pattern always sounds the same.
 _Avoid_: Song, project, loop, beat
 
+**Example**:
+A ready-made Pattern, with a name, offered on an empty canvas as a starting point.
+_Avoid_: Preset, demo, template
+
 **Core**:
 The single central dot that every Pulse travels towards; a sound is produced when a Pulse reaches it.
 _Avoid_: Centre, central dot, hub
