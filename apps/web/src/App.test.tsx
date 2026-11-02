@@ -105,7 +105,9 @@ describe('Examples', () => {
     open();
     expect(exampleLink('techno')?.closest('p')?.textContent).toBe('Try techno · breakbeat · shuffle');
     expect(exampleLink('techno')?.getAttribute('href')).toBe(`#${techno}`);
-    expect(exampleLink('breakbeat')?.getAttribute('href')).toBe('#v1~132~k5_0~k5_0.625~s4_0.5~h2_0~t5_0.875');
+    expect(exampleLink('breakbeat')?.getAttribute('href')).toBe(
+      '#v1~132~k5_0~k5_0.125~k5_0.625~s4_0.5~s4_0.875~h2_0~o5_0.375~c5_0.75~t5_0.875',
+    );
     expect(exampleLink('shuffle')?.getAttribute('href')).toMatch(/^#v2~96d12~/);
   });
 
