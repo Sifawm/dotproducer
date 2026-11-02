@@ -2,7 +2,7 @@
 
 Labels: `ready-for-agent`
 
-This spec uses the vocabulary defined in `CONTEXT.md` (Pattern, Core, Voice, Sound, Muted, Dock, Link, Pulse, Ripple, Ring, Period, Phase, Tempo, Tap tempo, Magnet, Division, Straight, Triplet, Free placement) and respects ADR 0001 (Pixi for the scene, HTML for the controls) and ADR 0002 (the Magnet's Straight or Triplet belongs to the Pattern).
+This spec uses the vocabulary defined in `CONTEXT.md` (Pattern, Example, Core, Voice, Sound, Muted, Dock, Link, Pulse, Ripple, Ring, Period, Phase, Tempo, Tap tempo, Magnet, Division, Straight, Triplet, Free placement) and respects ADR 0001 (Pixi for the scene, HTML for the controls) and ADR 0002 (the Magnet's Straight or Triplet belongs to the Pattern).
 
 ## Problem Statement
 
@@ -30,7 +30,7 @@ The music starts with the first Voice dropped. Tapping the Core pauses and resum
 
 1. As a first-time visitor, I want to see the Core, the Rings and the Dock on an otherwise empty canvas, so that I understand the whole app at a glance.
 2. As a first-time visitor, I want a single short hint line telling me to drag a dot, so that I know the first gesture without a tutorial.
-3. As a first-time visitor, I want the hint to fade away on my first drag and never return, so that the canvas stays clean once I know what to do.
+3. As a first-time visitor, I want the line telling me to drag a dot to fade away on my first drag and never return, so that the canvas stays clean once I know what to do.
 4. As a first-time visitor, I want to tap a dot in the Dock and hear its Sound, so that I can learn which dot is which before placing anything.
 5. As a first-time visitor, I want each Sound to have its own colour and its own shape or size, so that I can tell them apart even if I cannot distinguish the colours.
 6. As a first-time visitor, I want the app to be ready to make sound on my first gesture with no loading screen, so that nothing stands between me and the first hit.
@@ -170,6 +170,21 @@ The music starts with the first Voice dropped. Tapping the Core pauses and resum
 98. As a keyboard user, I want the arrows to step by one Division of the Pattern's Straight or Triplet, so that I can place triplets by keyboard.
 99. As a screen reader user, I want thirds and twelfths of the Period named as reduced fractions (for example "1/3 past the beat"), so that triplet Voices are as understandable as straight ones.
 
+### Examples
+
+100. As a first-time visitor, I want a line reading "Try techno · breakbeat · shuffle" below the hint, each name a link to an Example, so that I can hear what the app can do before I learn any gesture.
+101. As a player, I want choosing an Example to fill the canvas with its Voices, its Tempo and its Straight or Triplet, and to start playing at once, so that one tap is enough to hear it.
+102. As a player, I want choosing an Example to leave the Magnet on or off as it was, so that my per-session choice is not overridden.
+103. As a player, I want an Example to be one step of history, so that Back returns me to the empty canvas.
+104. As a player, I want an Example to join running playback without restarting the bar, and to resume paused playback, so that it behaves like any other edit and always plays.
+105. As a player, I want the Example line back whenever the canvas is empty again, after Clear or after the last Voice is removed, so that I always have somewhere to start from.
+106. As a player, I want only a real drag, not choosing an Example, to dismiss the line telling me to drag a dot, so that I still learn the gesture.
+107. As a player, I want the Example line to fade out while I drag a dot from the Dock and to return if I cancel that drag on an empty canvas, so that it never sits under a drop.
+108. As a player, I want every Voice of every Example on a Ring and a Division of its Straight or Triplet, so that the Examples show the grid.
+109. As a keyboard user, I want to reach and choose the Example links with Tab and Enter, and never focus them while they are hidden, so that Examples work without a pointer.
+110. As a screen reader user, I want choosing an Example announced (for example "Techno example loaded, playing"), so that I know what happened without seeing the canvas.
+111. As a player with low colour vision, I want the Example names underlined, so that they read as links without relying on colour.
+
 ## Implementation Decisions
 
 ### Workspace and modules
@@ -190,6 +205,7 @@ The music starts with the first Voice dropped. Tapping the Core pauses and resum
   - Timing: the Period of a Voice as a function of its distance and the Tempo. On Ring *n* the Period is 1/16 of a bar doubled *n − 1* times; between Rings it is interpolated exponentially. The Phase of a Voice as a fraction of its own Period, derived from its angle, with 12 o'clock as zero.
   - Playback as a pure function of time: given a Pattern and a position on the musical timeline, where each Pulse is along its Link; and given a window of the musical timeline, which hits (Voice, Sound, instant) fall inside it. Muted Voices still have Pulses but yield no hits.
   - Fan-out: given a Pattern, the on-screen display angle of each Voice so that Voices sharing a position are separated, without changing their Phase.
+  - The Examples: an ordered, read-only list of a name and a Pattern written as a URL-codec string (techno at 128 BPM and breakbeat at 132 BPM in Straight, shuffle at 96 BPM in Triplet), every Voice on a Ring and a Division of its Straight or Triplet.
   - The URL codec: encoding a Pattern into a compact string and decoding it back. Decoding is total: it never throws, drops Voices it cannot interpret, clamps out-of-range values, and yields an empty Pattern for unreadable input. The encoding carries a version marker so the format can evolve.
 - The musical timeline is measured in beats, not seconds, so that pausing and Tempo changes do not make Pulses jump: the timeline position advances at a rate set by the Tempo and stops while paused.
 - The six Sounds are a closed set known to **model**. Their timbre lives in **audio** and their look in **scene**.
@@ -215,18 +231,21 @@ The music starts with the first Voice dropped. Tapping the Core pauses and resum
 
 ### ui
 
-- **ui** contains the React pieces that are HTML rather than canvas: the Tempo control, the Magnet control, the first-visit hint, and the keyboard mirror.
+- **ui** contains the React pieces that are HTML rather than canvas: the Tempo control, the Magnet control, the hint, and the keyboard mirror.
 - The keyboard mirror is a visually hidden but focusable layer with one control per Dock dot, per Voice and for the Core, kept in sync with the Pattern. It carries the accessible names and live announcements, and translates key presses into the same intents the scene emits. Keyboard movement operates on the Magnet grid only (five Rings by the Divisions of the Pattern's Straight or Triplet, even while the Magnet is off); Free placement by keyboard is not supported.
 - The Tempo control is a draggable number (pointer) and a spin button (keyboard), 60 to 180 BPM.
 - Tap tempo lives in the Tempo control: a press under 4 px of movement, or `T` (declared with `aria-keyshortcuts`), is a tap. The Tempo from a list of tap times (at least four, averaging the latest three intervals, clamped to range) is a pure function in **model**. Each tap from the fourth shows the new Tempo; the session is committed once, after 2 s without a tap or on blur. No extra announcement: the spin button's value text already changes.
 - The Magnet control steps through Straight, Triplet and off, showing its state in words; its accessible name includes the state and each change is announced. Straight or Triplet belongs to the Pattern (in the URL as the v2 `d` field, absent for Straight so those links stay `v1`); on/off is session state. On desktop, holding Alt during a drag inverts it for that drag: free placement when on, the Pattern's Divisions when off. While a drag would snap, the Ring under the pointer shows its Divisions.
+- The hint has two lines with their own visibility: "Drag a dot onto the canvas", and "Try techno · breakbeat · shuffle", each Example name a real link to `#` plus its codec string, so open-in-new-tab and copy-link work. Only the links take pointer events; a hidden Example line is out of the tab order and the accessibility tree. The links are underlined, have a visible focus ring and a hit area of at least 24 × 24 px.
 
 ### Application
 
 - The application owns the Pattern and the Magnet state in React, applies intents through **model**, and passes the result to the scene, the audio engine and the keyboard mirror.
 - The Pattern is written to the URL fragment whenever a change is committed (a drop, a mute toggle, a removal, a Tempo change on release), as a new history entry, so the back button undoes one committed change. Navigating history restores the Pattern from the URL.
 - On load, the Pattern is decoded from the URL. If it contains Voices, the app shows them silently and the first tap on the Core unlocks audio and starts playback. If it is empty, the first drop unlocks audio and starts playback.
-- The first-visit hint is shown only when the Pattern is empty and disappears on the first drag.
+- The line telling the visitor to drag a dot is shown only when the Pattern is empty and disappears for good on the first drag; nothing else dismisses it.
+- The Example line is shown whenever the Pattern is empty and no drag from the Dock is in progress: it hides when a drag starts and returns if the drag is cancelled on an empty canvas.
+- Choosing an Example is handled by the application, not by fragment navigation: its Pattern is committed as one step of history, replacing the Tempo and Straight or Triplet but not the Magnet's on/off; playback is unlocked and started, resumed if paused, or continued from the current position if running; and "<Name> example loaded, playing" is announced.
 - The interface is in English only; there is no translation infrastructure.
 
 ### Audio export
@@ -251,8 +270,8 @@ The music starts with the first Voice dropped. Tapping the Core pauses and resum
 - A good test here exercises behaviour a player could observe or a caller could rely on — "a Voice dropped between Ring 2 and Ring 3 with the Magnet on lands on the nearer one", "a Pattern survives a round trip through the URL" — and never asserts on internal structure, private helpers or call order between collaborators. Tests should keep passing through any refactor that preserves behaviour.
 - Tests are written with Vitest. There is no prior art in the repository; these are the first tests and set the conventions.
 - There are two test seams.
-  - **The public interface of model** (the primary seam). Pure functions, tested without any test doubles. It covers: Pattern operations; Magnet snapping, clamping and merging; conversion between canvas points and distance/angle at several canvas sizes; Period and Phase for each Ring and for Free placement between Rings; Pulse positions at given timeline positions; hits within timeline windows, including windows that span several Periods, Muted Voices, and Tempo changes; fan-out of coinciding Voices; and the URL codec, including round trips, clamping of out-of-range values and tolerance of corrupt or truncated input. Property-style tests are appropriate for the codec round trip and for the invariant that placement always yields a distance within range.
-  - **The application rendered with a fake audio engine, a fake scene and a controllable clock, driven through the HTML surface** (keyboard mirror, Tempo and Magnet controls). It covers the wiring end to end: creating, moving, muting and removing Voices by keyboard; the accessible names and announcements; which hits reach the audio engine and when; pause and resume through the Core; Tempo changes; the URL after each committed change; restoring from history; a shared link opening silently and starting on the first interaction; a corrupt link opening an empty canvas; and the first-visit hint appearing and disappearing.
+  - **The public interface of model** (the primary seam). Pure functions, tested without any test doubles. It covers: Pattern operations; Magnet snapping, clamping and merging; conversion between canvas points and distance/angle at several canvas sizes; Period and Phase for each Ring and for Free placement between Rings; Pulse positions at given timeline positions; hits within timeline windows, including windows that span several Periods, Muted Voices, and Tempo changes; fan-out of coinciding Voices; every Example decoding to a non-empty Pattern that encodes back to the same string with its Voices on Divisions; and the URL codec, including round trips, clamping of out-of-range values and tolerance of corrupt or truncated input. Property-style tests are appropriate for the codec round trip and for the invariant that placement always yields a distance within range.
+  - **The application rendered with a fake audio engine, a fake scene and a controllable clock, driven through the HTML surface** (keyboard mirror, Tempo and Magnet controls). It covers the wiring end to end: creating, moving, muting and removing Voices by keyboard; the accessible names and announcements; which hits reach the audio engine and when; pause and resume through the Core; Tempo changes; the URL after each committed change; restoring from history; a shared link opening silently and starting on the first interaction; a corrupt link opening an empty canvas; the hint appearing and disappearing; and choosing an Example, including its history step, playback and announcement.
 - The fakes implement the same interfaces as the real audio engine and scene, so the seam is the real dependency-inversion boundary and not a test-only hook. The fake scene also lets tests emit pointer intents (a drop at a canvas point, a tap on a Voice) without a canvas.
 - Not covered by automated tests, deliberately: the Tone adapter (whether the Sounds are good) and the Pixi adapter (whether drawing, motion and pointer dragging look and feel right). Both are thin layers behind interfaces and are verified by hand and during the impeccable sessions. The logic behind dragging — which position a canvas point maps to — is covered at the model seam.
 - Synchrony between Pulse arrival and audible hit is verified by hand on the thin slice, on desktop and on a real phone, before the rest is built.
